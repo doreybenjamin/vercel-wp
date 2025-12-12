@@ -1271,6 +1271,7 @@ class VercelWP_Preview_Manager {
     
     /**
      * Rewrite permalink to use production URL instead of WordPress admin URL
+     * Preserves language prefixes for multilingual sites (WPML, Polylang, etc.)
      * 
      * @param string $permalink The original permalink
      * @param WP_Post $post The post object
@@ -1295,19 +1296,196 @@ class VercelWP_Preview_Manager {
             return $permalink;
         }
         
+        // Extract language prefix if present (e.g., /en/, /it/, /fr/)
+        $language_prefix = $this->extract_language_prefix($permalink, $wp_admin_url);
+        
         // Replace WordPress admin URL with production URL
+        // This should preserve the language prefix if it's already in the permalink
         $rewritten_permalink = str_replace($wp_admin_url, $production_url, $permalink);
+        
+        // Verify that language prefix is preserved after replacement
+        // If the original permalink had a language prefix but the rewritten one doesn't, restore it
+        if (!empty($language_prefix)) {
+            // Parse the rewritten URL to check if prefix is present
+            $parsed_rewritten = parse_url($rewritten_permalink);
+            $rewritten_path = isset($parsed_rewritten['path']) ? $parsed_rewritten['path'] : '';
+            
+            // Normalize language prefix (remove leading/trailing slashes for comparison)
+            $normalized_prefix = trim($language_prefix, '/');
+            
+            // Check if the language prefix exists in the rewritten URL path
+            // We check both with and without leading slash
+            $prefix_in_path = (
+                strpos($rewritten_path, $language_prefix) !== false ||
+                strpos($rewritten_path, '/' . $normalized_prefix . '/') !== false ||
+                preg_match('#^/' . preg_quote($normalized_prefix, '#') . '/#', $rewritten_path)
+            );
+            
+            // If the language prefix is missing from the rewritten URL, add it back
+            if (!$prefix_in_path) {
+                // Get the path part after the domain
+                $parsed_production = parse_url($production_url);
+                $production_scheme = isset($parsed_production['scheme']) ? $parsed_production['scheme'] . '://' : '';
+                $production_host = isset($parsed_production['host']) ? $parsed_production['host'] : '';
+                $production_path = isset($parsed_production['path']) ? rtrim($parsed_production['path'], '/') : '';
+                
+                // Extract the path from the rewritten URL (everything after domain)
+                $url_path = str_replace($production_url, '', $rewritten_permalink);
+                $url_path = ltrim($url_path, '/');
+                
+                // Reconstruct URL with language prefix
+                $rewritten_permalink = $production_scheme . $production_host;
+                if (!empty($production_path)) {
+                    $rewritten_permalink .= $production_path;
+                }
+                $rewritten_permalink .= $language_prefix . $url_path;
+            }
+        }
         
         // Debug logging for admin users
         if (current_user_can('manage_options') && WP_DEBUG) {
             error_log(sprintf(
-                'Vercel WP Permalink Rewrite: %s -> %s',
+                'Vercel WP Permalink Rewrite: %s -> %s (lang prefix: %s)',
                 $permalink,
-                $rewritten_permalink
+                $rewritten_permalink,
+                $language_prefix ?: 'none'
             ));
         }
         
         return $rewritten_permalink;
+    }
+    
+    /**
+     * Extract language prefix from permalink URL
+     * Supports WPML, Polylang, and other multilingual plugins
+     * 
+     * @param string $permalink The permalink URL
+     * @param string $base_url The base WordPress URL
+     * @return string The language prefix (e.g., '/en/', '/it/') or empty string
+     */
+    private function extract_language_prefix($permalink, $base_url) {
+        // First, try to extract from the URL path directly
+        $parsed = parse_url($permalink);
+        $path = isset($parsed['path']) ? $parsed['path'] : '';
+        
+        // Remove leading slash for pattern matching
+        $path = ltrim($path, '/');
+        
+        // Pattern to match language codes (2-3 letters, sometimes with country code)
+        // Matches patterns like: /en/, /en-US/, /it/, /fr/, /de/, etc.
+        // Also supports custom language codes from multilingual plugins
+        if (!empty($path) && preg_match('#^([a-z]{2,3}(?:-[a-z]{2,3})?)/#i', $path, $matches)) {
+            $lang_code = $matches[1];
+            
+            // Verify it's likely a language prefix by checking against known patterns
+            // WPML and Polylang typically use 2-3 letter codes
+            // Also check if it's a valid language code format
+            if (strlen($lang_code) >= 2 && strlen($lang_code) <= 10) {
+                // Additional validation: check if multilingual plugin is active
+                // This helps avoid false positives
+                if ($this->is_multilingual_site()) {
+                    return '/' . $lang_code . '/';
+                }
+            }
+        }
+        
+        // If not found in URL, try to get language from multilingual plugins directly
+        // This is useful when the permalink doesn't yet contain the language prefix
+        // but we're on a multilingual site
+        if ($this->is_multilingual_site()) {
+            $lang_code = $this->get_current_language_code();
+            if (!empty($lang_code)) {
+                return '/' . $lang_code . '/';
+            }
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Check if site is multilingual (WPML, Polylang, etc.)
+     * 
+     * @return bool True if multilingual plugin is active
+     */
+    private function is_multilingual_site() {
+        // Check for WPML
+        if (defined('ICL_SITEPRESS_VERSION') || function_exists('icl_object_id')) {
+            return true;
+        }
+        
+        // Check for Polylang
+        if (function_exists('pll_current_language') || function_exists('PLL')) {
+            return true;
+        }
+        
+        // Check for TranslatePress
+        if (class_exists('TRP_Translate_Press')) {
+            return true;
+        }
+        
+        // Check for Weglot
+        if (class_exists('WeglotWPInit')) {
+            return true;
+        }
+        
+        // Check for qTranslate-X
+        if (function_exists('qtranxf_getLanguage')) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get current language code from multilingual plugin
+     * 
+     * @return string Language code or empty string
+     */
+    private function get_current_language_code() {
+        // WPML
+        if (defined('ICL_LANGUAGE_CODE')) {
+            return ICL_LANGUAGE_CODE;
+        }
+        if (function_exists('icl_get_current_language')) {
+            $lang = icl_get_current_language();
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // Polylang
+        if (function_exists('pll_current_language')) {
+            $lang = pll_current_language('slug');
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // TranslatePress
+        if (class_exists('TRP_Translate_Press')) {
+            global $TRP_LANGUAGE;
+            if (isset($TRP_LANGUAGE) && !empty($TRP_LANGUAGE)) {
+                return $TRP_LANGUAGE;
+            }
+        }
+        
+        // Weglot
+        if (class_exists('WeglotWPInit')) {
+            $lang = weglot_get_current_language();
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // qTranslate-X
+        if (function_exists('qtranxf_getLanguage')) {
+            $lang = qtranxf_getLanguage();
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        return '';
     }
     
     /**
