@@ -2,59 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] - 2024-01-01
+## [1.0.4] - 2024-12-XX
 
-### Added
+### Enhanced
 
-- Initial release of Vercel WP plugin
-- Unified settings page with tabbed interface
-- Deploy tab (default) with full deployment functionality
-- Preview tab with comprehensive preview features
-- **Automatic permalink rewriting** - All permalinks use production URL
-- **Smart permalink filters** - Works with posts, pages, and custom post types
-- **Admin bar integration** - "Visit Site" links use production URL
-- **Public route redirection** - All public pages redirect to production
-- Real-time deployment status tracking
-- Split-screen preview interface with device simulation
-- Preview buttons in post editor and admin bar
-- URL mapping between WordPress and Vercel
-- Headless WordPress functionality
-- URL replacement tool for migrations
-- Cache management with Vercel API integration
-- ACF support for serialized data
-- Connection diagnostics and testing tools
-- Comprehensive documentation and configuration guides
+- **Improved language prefix management in permalinks** - Full support for multilingual sites (WPML, Polylang, etc.)
+- Primary language permalinks no longer include language prefix (e.g., `/slug` instead of `/fr/slug`)
+- Secondary language permalinks automatically include their prefix (e.g., `/en/slug`, `/it/slug`)
+- Automatic detection of primary language for all supported multilingual plugins
 
-### Technical Features
+### Technical Changes
 
-- One-click deployment to Vercel
-- Real-time deployment status monitoring
-- Deployment history with detailed information
-- Admin bar deploy button for quick access
-- Vercel services status monitoring
-- Complete API integration with Vercel
-- Device simulation (Desktop, Tablet, Mobile)
-- Preview from post editor
-- Smart cache clearing via Vercel API
-- Automatic permalink rewriting for all post types
-- Custom post type support with URL validation
-- AJAX endpoints for all functionality
-- Secure nonce verification for all requests
-- Multi-language support (English/French)
+- Added `get_post_language_code()` function to detect the language of a specific post
+- Enhanced `get_primary_language_code()` function with extended support for WPML, Polylang, TranslatePress, Weglot, and qTranslate-X
+- Modified `rewrite_permalink()` to automatically add language prefixes only for secondary languages
+- Full WPML support with multiple language detection methods
+- Better handling of multilingual sites without language prefixes in original WordPress permalinks
 
-### Security
+### Fixed
 
-- Secure AJAX implementation with nonce verification
-- User capability checks for all admin functions
-- Input sanitization and validation
-- Error logging without exposing sensitive data
-
-### Performance
-
-- Efficient cache management
-- Optimized API calls with proper error handling
-- Smart polling with adaptive intervals
-- Background processing for deployments
+- Fixed language prefix management logic for multilingual sites
+- Permalinks now work correctly even when WordPress doesn't generate language prefixes in URLs
 
 ---
 
@@ -120,19 +88,59 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.0.0] - 2024-01-01
 
-### Planned Features
+### Added
 
-- Enhanced cache statistics and monitoring
-- Selective cache clearing by path
-- Advanced deployment options
-- Additional language support
+- Initial release of Vercel WP plugin
+- Unified settings page with tabbed interface
+- Deploy tab (default) with full deployment functionality
+- Preview tab with comprehensive preview features
+- **Automatic permalink rewriting** - All permalinks use production URL
+- **Smart permalink filters** - Works with posts, pages, and custom post types
+- **Admin bar integration** - "Visit Site" links use production URL
+- **Public route redirection** - All public pages redirect to production
+- Real-time deployment status tracking
+- Split-screen preview interface with device simulation
+- Preview buttons in post editor and admin bar
+- URL mapping between WordPress and Vercel
+- Headless WordPress functionality
+- URL replacement tool for migrations
+- Cache management with Vercel API integration
+- ACF support for serialized data
+- Connection diagnostics and testing tools
+- Comprehensive documentation and configuration guides
 
-### Known Issues
+### Technical Features
 
-- Cache clearing requires Vercel API credentials
-- Preview functionality depends on Vercel preview deployments
+- One-click deployment to Vercel
+- Real-time deployment status monitoring
+- Deployment history with detailed information
+- Admin bar deploy button for quick access
+- Vercel services status monitoring
+- Complete API integration with Vercel
+- Device simulation (Desktop, Tablet, Mobile)
+- Preview from post editor
+- Smart cache clearing via Vercel API
+- Automatic permalink rewriting for all post types
+- Custom post type support with URL validation
+- AJAX endpoints for all functionality
+- Secure nonce verification for all requests
+- Multi-language support (English/French)
+
+### Security
+
+- Secure AJAX implementation with nonce verification
+- User capability checks for all admin functions
+- Input sanitization and validation
+- Error logging without exposing sensitive data
+
+### Performance
+
+- Efficient cache management
+- Optimized API calls with proper error handling
+- Smart polling with adaptive intervals
+- Background processing for deployments
 
 ---
 

@@ -1271,7 +1271,7 @@ class VercelWP_Preview_Manager {
     
     /**
      * Rewrite permalink to use production URL instead of WordPress admin URL
-     * Preserves language prefixes for multilingual sites (WPML, Polylang, etc.)
+     * Adds language prefix for secondary languages only (not for primary language)
      * 
      * @param string $permalink The original permalink
      * @param WP_Post $post The post object
@@ -1296,59 +1296,53 @@ class VercelWP_Preview_Manager {
             return $permalink;
         }
         
-        // Extract language prefix if present (e.g., /en/, /it/, /fr/)
-        $language_prefix = $this->extract_language_prefix($permalink, $wp_admin_url);
-        
         // Replace WordPress admin URL with production URL
-        // This should preserve the language prefix if it's already in the permalink
         $rewritten_permalink = str_replace($wp_admin_url, $production_url, $permalink);
         
-        // Verify that language prefix is preserved after replacement
-        // If the original permalink had a language prefix but the rewritten one doesn't, restore it
-        if (!empty($language_prefix)) {
-            // Parse the rewritten URL to check if prefix is present
-            $parsed_rewritten = parse_url($rewritten_permalink);
-            $rewritten_path = isset($parsed_rewritten['path']) ? $parsed_rewritten['path'] : '';
-            
-            // Normalize language prefix (remove leading/trailing slashes for comparison)
-            $normalized_prefix = trim($language_prefix, '/');
-            
-            // Check if the language prefix exists in the rewritten URL path
-            // We check both with and without leading slash
-            $prefix_in_path = (
-                strpos($rewritten_path, $language_prefix) !== false ||
-                strpos($rewritten_path, '/' . $normalized_prefix . '/') !== false ||
-                preg_match('#^/' . preg_quote($normalized_prefix, '#') . '/#', $rewritten_path)
-            );
-            
-            // If the language prefix is missing from the rewritten URL, add it back
-            if (!$prefix_in_path) {
-                // Get the path part after the domain
-                $parsed_production = parse_url($production_url);
-                $production_scheme = isset($parsed_production['scheme']) ? $parsed_production['scheme'] . '://' : '';
-                $production_host = isset($parsed_production['host']) ? $parsed_production['host'] : '';
-                $production_path = isset($parsed_production['path']) ? rtrim($parsed_production['path'], '/') : '';
+        // Get the language of the post/content
+        $post_lang_code = $this->get_post_language_code($post);
+        $primary_lang_code = $this->get_primary_language_code();
+        
+        // Only add language prefix if:
+        // 1. Site is multilingual
+        // 2. Post has a language code
+        // 3. Post language is NOT the primary language
+        if ($this->is_multilingual_site() && !empty($post_lang_code) && !empty($primary_lang_code)) {
+            if (strtolower($post_lang_code) !== strtolower($primary_lang_code)) {
+                // This is a secondary language, add the prefix
+                $parsed_rewritten = parse_url($rewritten_permalink);
+                $rewritten_path = isset($parsed_rewritten['path']) ? $parsed_rewritten['path'] : '/';
+                $rewritten_query = isset($parsed_rewritten['query']) ? '?' . $parsed_rewritten['query'] : '';
+                $rewritten_fragment = isset($parsed_rewritten['fragment']) ? '#' . $parsed_rewritten['fragment'] : '';
                 
-                // Extract the path from the rewritten URL (everything after domain)
-                $url_path = str_replace($production_url, '', $rewritten_permalink);
-                $url_path = ltrim($url_path, '/');
+                // Check if prefix is already present
+                $normalized_path = ltrim($rewritten_path, '/');
+                $prefix_pattern = '/^' . preg_quote($post_lang_code, '/') . '\//i';
                 
-                // Reconstruct URL with language prefix
-                $rewritten_permalink = $production_scheme . $production_host;
-                if (!empty($production_path)) {
-                    $rewritten_permalink .= $production_path;
+                if (!preg_match($prefix_pattern, $normalized_path)) {
+                    // Add the language prefix
+                    $path_with_prefix = '/' . $post_lang_code . $rewritten_path;
+                    $path_with_prefix = preg_replace('#/+#', '/', $path_with_prefix);
+                    
+                    // Reconstruct the URL with language prefix
+                    $rewritten_scheme = isset($parsed_rewritten['scheme']) ? $parsed_rewritten['scheme'] . '://' : '';
+                    $rewritten_host = isset($parsed_rewritten['host']) ? $parsed_rewritten['host'] : '';
+                    $rewritten_permalink = $rewritten_scheme . $rewritten_host . $path_with_prefix . $rewritten_query . $rewritten_fragment;
                 }
-                $rewritten_permalink .= $language_prefix . $url_path;
             }
+            // If it's the primary language, don't add prefix (keep as is)
         }
         
         // Debug logging for admin users
         if (current_user_can('manage_options') && WP_DEBUG) {
+            $action = (!empty($post_lang_code) && !empty($primary_lang_code) && strtolower($post_lang_code) !== strtolower($primary_lang_code)) ? 'added' : 'none';
             error_log(sprintf(
-                'Vercel WP Permalink Rewrite: %s -> %s (lang prefix: %s)',
+                'Vercel WP Permalink Rewrite: %s -> %s (post lang: %s, primary: %s, action: %s)',
                 $permalink,
                 $rewritten_permalink,
-                $language_prefix ?: 'none'
+                $post_lang_code ?: 'none',
+                $primary_lang_code ?: 'none',
+                $action
             ));
         }
         
@@ -1482,6 +1476,151 @@ class VercelWP_Preview_Manager {
             $lang = qtranxf_getLanguage();
             if ($lang) {
                 return $lang;
+            }
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Get language code for a specific post
+     * 
+     * @param WP_Post|int|null $post Post object or post ID
+     * @return string Language code or empty string
+     */
+    private function get_post_language_code($post) {
+        // If post is null or not provided, try to get current language
+        if (empty($post)) {
+            return $this->get_current_language_code();
+        }
+        
+        // Get post ID
+        $post_id = is_object($post) ? $post->ID : intval($post);
+        
+        if (empty($post_id)) {
+            return $this->get_current_language_code();
+        }
+        
+        // WPML
+        if (function_exists('wpml_get_language_information')) {
+            $lang_info = wpml_get_language_information($post_id);
+            if (isset($lang_info['language_code']) && !empty($lang_info['language_code'])) {
+                return $lang_info['language_code'];
+            }
+        }
+        // WPML alternative using filter
+        if (function_exists('apply_filters')) {
+            $lang = apply_filters('wpml_post_language_details', null, $post_id);
+            if (isset($lang['language_code']) && !empty($lang['language_code'])) {
+                return $lang['language_code'];
+            }
+        }
+        // WPML alternative using element language
+        if (function_exists('apply_filters')) {
+            $lang = apply_filters('wpml_element_language_code', null, array('element_id' => $post_id, 'element_type' => 'post'));
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // Polylang
+        if (function_exists('pll_get_post_language')) {
+            $lang = pll_get_post_language($post_id, 'slug');
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // TranslatePress
+        if (class_exists('TRP_Translate_Press')) {
+            // TranslatePress stores language in post meta
+            $lang = get_post_meta($post_id, 'trp_language', true);
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // Weglot - doesn't store per-post language, use current language
+        if (class_exists('WeglotWPInit')) {
+            return $this->get_current_language_code();
+        }
+        
+        // qTranslate-X
+        if (function_exists('qtranxf_getLanguage')) {
+            // qTranslate-X stores language in post meta
+            $lang = get_post_meta($post_id, '_qts_slug_en', true);
+            if (!$lang) {
+                $lang = get_post_meta($post_id, '_qts_slug', true);
+            }
+            if (!$lang) {
+                return $this->get_current_language_code();
+            }
+        }
+        
+        // Fallback to current language if post-specific language not found
+        return $this->get_current_language_code();
+    }
+    
+    /**
+     * Get primary/default language code from multilingual plugin
+     * 
+     * @return string Primary language code or empty string
+     */
+    private function get_primary_language_code() {
+        // WPML
+        if (function_exists('icl_get_default_language')) {
+            $lang = icl_get_default_language();
+            if ($lang) {
+                return $lang;
+            }
+        }
+        // WPML alternative method
+        if (function_exists('apply_filters')) {
+            $lang = apply_filters('wpml_default_language', '');
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // Polylang
+        if (function_exists('pll_default_language')) {
+            $lang = pll_default_language('slug');
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // TranslatePress
+        if (class_exists('TRP_Translate_Press')) {
+            $settings = get_option('trp_settings');
+            if (isset($settings['default-language']) && !empty($settings['default-language'])) {
+                return $settings['default-language'];
+            }
+        }
+        
+        // Weglot
+        if (class_exists('WeglotWPInit')) {
+            $weglot_settings = get_option('weglot_settings');
+            if (isset($weglot_settings['original_language']) && !empty($weglot_settings['original_language'])) {
+                return $weglot_settings['original_language'];
+            }
+        }
+        
+        // qTranslate-X
+        if (function_exists('qtranxf_getDefaultLanguage')) {
+            $lang = qtranxf_getDefaultLanguage();
+            if ($lang) {
+                return $lang;
+            }
+        }
+        
+        // Fallback: try to get from WordPress locale
+        $locale = get_locale();
+        if ($locale) {
+            // Extract language code from locale (e.g., 'fr_FR' -> 'fr')
+            $lang_parts = explode('_', $locale);
+            if (!empty($lang_parts[0])) {
+                return strtolower($lang_parts[0]);
             }
         }
         
