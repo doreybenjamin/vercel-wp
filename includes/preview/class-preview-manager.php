@@ -1504,21 +1504,24 @@ class VercelWP_Preview_Manager {
         // WPML
         if (function_exists('wpml_get_language_information')) {
             $lang_info = wpml_get_language_information($post_id);
-            if (isset($lang_info['language_code']) && !empty($lang_info['language_code'])) {
+            // Check if result is not a WP_Error and is an array
+            if (!is_wp_error($lang_info) && is_array($lang_info) && isset($lang_info['language_code']) && !empty($lang_info['language_code'])) {
                 return $lang_info['language_code'];
             }
         }
         // WPML alternative using filter
         if (function_exists('apply_filters')) {
             $lang = apply_filters('wpml_post_language_details', null, $post_id);
-            if (isset($lang['language_code']) && !empty($lang['language_code'])) {
+            // Check if result is not a WP_Error and is an array
+            if (!is_wp_error($lang) && is_array($lang) && isset($lang['language_code']) && !empty($lang['language_code'])) {
                 return $lang['language_code'];
             }
         }
         // WPML alternative using element language
         if (function_exists('apply_filters')) {
             $lang = apply_filters('wpml_element_language_code', null, array('element_id' => $post_id, 'element_type' => 'post'));
-            if ($lang) {
+            // Check if result is not a WP_Error and is a string
+            if (!is_wp_error($lang) && is_string($lang) && !empty($lang)) {
                 return $lang;
             }
         }
