@@ -66,6 +66,9 @@ class VercelWP_Preview_Manager {
         add_action('admin_footer', array($this, 'fix_admin_bar_urls_js'), 999);
         add_action('wp_footer', array($this, 'fix_admin_bar_urls_js'), 999);
         
+        // Redirect to Production URL or Preview URL
+        add_action('template_redirect', array($this, 'redirect_to_frontend_url'));
+        
         // Note: activation/deactivation hooks are now in vercel-wp.php
     }
     
@@ -74,6 +77,71 @@ class VercelWP_Preview_Manager {
         
         // Update existing settings to include new options
         $this->update_existing_settings();
+    }
+    
+    /**
+     * Redirect to Production URL or Preview URL if configured
+     */
+    public function redirect_to_frontend_url() {
+        // Only redirect on frontend, not in admin
+        if (is_admin()) {
+            return;
+        }
+        
+        // Don't redirect AJAX requests
+        if (defined('DOING_AJAX') && DOING_AJAX) {
+            return;
+        }
+        
+        // Don't redirect REST API requests
+        if (defined('REST_REQUEST') && REST_REQUEST) {
+            return;
+        }
+        
+        // Don't redirect if doing cron
+        if (defined('DOING_CRON') && DOING_CRON) {
+            return;
+        }
+        
+        // Get settings
+        $settings = get_option('vercel_wp_preview_settings', array(
+            'vercel_preview_url' => '',
+            'production_url' => '',
+        ));
+        
+        $production_url = !empty($settings['production_url']) ? rtrim($settings['production_url'], '/') : '';
+        $preview_url = !empty($settings['vercel_preview_url']) ? rtrim($settings['vercel_preview_url'], '/') : '';
+        
+        // Determine redirect URL
+        $redirect_url = '';
+        
+        if (!empty($production_url)) {
+            // Redirect to Production URL if it's set
+            $redirect_url = $production_url;
+        } elseif (!empty($preview_url)) {
+            // Otherwise redirect to Preview URL if it's set
+            $redirect_url = $preview_url;
+        }
+        
+        // Only redirect if we have a URL and we're not already on that domain
+        if (!empty($redirect_url)) {
+            // Get current request URI safely
+            $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
+            
+            // Get current host
+            $current_host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : parse_url(home_url(), PHP_URL_HOST);
+            $redirect_host = parse_url($redirect_url, PHP_URL_HOST);
+            
+            // Only redirect if we're not already on the target domain
+            if ($current_host !== $redirect_host) {
+                // Preserve the path and query string
+                $full_redirect_url = rtrim($redirect_url, '/') . $request_uri;
+                
+                // Perform redirect with 301 (permanent redirect)
+                wp_redirect($full_redirect_url, 301);
+                exit;
+            }
+        }
     }
     
     /**
