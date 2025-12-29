@@ -3,7 +3,7 @@
  * Plugin Name: Vercel WP
  * Plugin URI: https://github.com/doreybenjamin/vercel-wp
  * Description: Unofficial Vercel plugin - Complete Vercel integration for WordPress.
- * Version: 1.0.3
+ * Version: 1.0.5
  * Author: Dorey Benjamin
  * Author URI: https://benjamindorey.fr/
  * License: GPLv3 or later
