@@ -46,7 +46,7 @@ class VercelWP_Deploy_API {
             wp_die('Insufficient permissions');
         }
 
-        $webhook_url = get_option('webhook_address');
+        $webhook_url = VercelWP_Deploy_Admin::get_sensitive_option('webhook_address');
         
         // For deployment, only webhook URL is required
         if (empty($webhook_url)) {
@@ -118,8 +118,8 @@ class VercelWP_Deploy_API {
             wp_die('Insufficient permissions');
         }
 
-        $api_key = get_option('vercel_api_key');
-        $site_id = get_option('vercel_site_id');
+        $api_key = VercelWP_Deploy_Admin::get_sensitive_option('vercel_api_key');
+        $site_id = VercelWP_Deploy_Admin::get_sensitive_option('vercel_site_id');
         
         if (!$api_key || !$site_id) {
             wp_send_json_error('API credentials not configured');
@@ -176,8 +176,8 @@ class VercelWP_Deploy_API {
             wp_die('Insufficient permissions');
         }
 
-        $api_key = get_option('vercel_api_key');
-        $site_id = get_option('vercel_site_id');
+        $api_key = VercelWP_Deploy_Admin::get_sensitive_option('vercel_api_key');
+        $site_id = VercelWP_Deploy_Admin::get_sensitive_option('vercel_site_id');
         
         if (!$api_key || !$site_id) {
             wp_send_json_error('API credentials not configured');

@@ -253,6 +253,9 @@
         this.cleanupOldDeployment();
       }
 
+      // Initialize sensitive fields handling (always, for settings page)
+      this.initSensitiveFields();
+
       // Only initialize page-specific functionality if on the deploy page
       if ($("#build_button").length > 0) {
         this.debug("On deploy page - initializing page-specific functionality");
@@ -2401,6 +2404,143 @@
           localStorage.removeItem("vercel_deployment_start_time");
         }
       }
+    },
+
+    initSensitiveFields: function () {
+      var self = this;
+      
+      // Handle edit button - replace value completely
+      $(document).on("click", ".vercel-edit-field", function (e) {
+        e.preventDefault();
+        var $button = $(this);
+        var fieldId = $button.data("field-id");
+        var $input = $("#" + fieldId);
+        var $description = $input.closest(".vercel-sensitive-field-wrapper").next(".description");
+        
+        // Check if already in edit mode
+        if ($input.hasClass("vercel-editing")) {
+          // Cancel edit mode - restore masked value
+          var originalValue = $input.data("original-value");
+          var maskedValue = "•".repeat(Math.min(originalValue.length, 20));
+          $input.val(maskedValue);
+          $input.attr("type", "password");
+          $input.prop("readonly", true);
+          $input.removeClass("vercel-editing");
+          $input.css({
+            "background-color": "#f6f7f7",
+            "cursor": "not-allowed"
+          });
+          
+          // Remove editing mode class from wrapper
+          $input.closest(".vercel-sensitive-field-wrapper").removeClass("editing-mode");
+          
+          // Restore description
+          if ($description.length) {
+            $description.text("Valeur masquée pour sécurité. Cliquez sur \"Éditer\" pour la remplacer.");
+          }
+          
+          // Change button text back to edit
+          var editText = $button.data("text-replace") || "Éditer";
+          $button.text(editText);
+          return;
+        }
+        
+        // Clear the input completely and enable editing (no confirmation)
+        $input.val("");
+        $input.attr("type", "text");
+        $input.prop("readonly", false);
+        $input.removeAttr("readonly");
+        $input.addClass("vercel-editing");
+        $input.css({
+          "background-color": "#ffffff",
+          "cursor": "text",
+          "border-color": "#2271b1"
+        });
+        $input.focus();
+        
+        // Add editing mode class to wrapper
+        $input.closest(".vercel-sensitive-field-wrapper").addClass("editing-mode");
+        
+        // Update description
+        if ($description.length) {
+          $description.text("Saisissez la nouvelle valeur, puis sauvegardez le formulaire.");
+        }
+        
+        // Change button text to cancel
+        var cancelText = $button.data("text-cancel") || "Annuler";
+        $button.text(cancelText);
+      });
+
+      // Handle form submission - restore original values if not edited and disable fields after save
+      $("form").on("submit", function (e) {
+        // Restore original values for masked fields that weren't edited (readonly fields)
+        $(".vercel-sensitive-input").each(function () {
+          var $input = $(this);
+          var originalValue = $input.data("original-value");
+          var currentValue = $input.val();
+          
+          // If field is readonly and masked (contains only bullets), restore original
+          if ($input.prop("readonly") && originalValue && 
+              currentValue === "•".repeat(Math.min(originalValue.length, 20))) {
+            $input.val(originalValue);
+          }
+        });
+        
+        // After form submission, fields will be disabled again by page reload
+        // But we can prepare them to be disabled immediately after successful save
+        $(".vercel-sensitive-input.vercel-editing").each(function () {
+          var $input = $(this);
+          var $wrapper = $input.closest(".vercel-sensitive-field-wrapper");
+          var $button = $wrapper.find(".vercel-edit-field");
+          var $description = $wrapper.next(".description");
+          
+          // Mark as will be disabled after save
+          $input.data("will-disable", true);
+        });
+      });
+      
+      // After successful form save, disable edited fields
+      if (window.location.search.indexOf("settings-updated=true") !== -1) {
+        setTimeout(function() {
+          $(".vercel-sensitive-input").each(function () {
+            var $input = $(this);
+            var $wrapper = $input.closest(".vercel-sensitive-field-wrapper");
+            var $button = $wrapper.find(".vercel-edit-field");
+            var $description = $wrapper.next(".description");
+            var originalValue = $input.data("original-value");
+            
+            if (originalValue) {
+              // Restore masked display
+              var maskedValue = "•".repeat(Math.min(originalValue.length, 20));
+              $input.val(maskedValue);
+              $input.attr("type", "password");
+              $input.prop("readonly", true);
+              $input.removeClass("vercel-editing");
+              $input.css({
+                "background-color": "#f6f7f7",
+                "cursor": "not-allowed",
+                "border-color": "#c3c4c7"
+              });
+              
+              $wrapper.removeClass("editing-mode");
+              
+              if ($description.length) {
+                $description.text("Valeur masquée pour sécurité. Cliquez sur \"Éditer\" pour la remplacer.");
+              }
+              
+              var editText = $button.data("text-replace") || "Éditer";
+              $button.text(editText);
+            }
+          });
+        }, 100);
+      }
+
+      // Prevent any interaction with readonly masked fields
+      $(document).on("focus click", ".vercel-sensitive-input[readonly]", function (e) {
+        e.preventDefault();
+        $(this).blur();
+        return false;
+      });
     },
   };
 

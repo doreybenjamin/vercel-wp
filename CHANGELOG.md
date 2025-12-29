@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.6] - 2025-01-27
+
+### Security Enhanced
+
+- **Protected sensitive deployment settings** - API keys and sensitive credentials are now masked by default
+- **Secure field display** - Sensitive fields (API Key, Webhook URL, Project ID) show masked values (••••) instead of plain text
+- **Visibility toggle** - Added show/hide button to reveal masked values when needed
+- **Edit protection** - Confirmation required before modifying sensitive fields
+- **Form submission protection** - Warning and confirmation when saving modified sensitive fields
+- **Automatic value restoration** - Original values are preserved if masked fields are submitted without changes
+
+### Enhanced
+
+- **Improved settings security** - Prevents accidental exposure of API keys and credentials
+- **Better UX for sensitive data** - Clear visual indicators and warnings for protected fields
+- **Mobile-responsive security controls** - Security features work seamlessly on all devices
+
+### Fixed
+
+- **Removed infinite gradient animation** - Fixed the shimmer animation on the edit field button that was running continuously
+- Button animations now only trigger on hover/active states, improving performance and visual clarity
+
+### Technical Changes
+
+- Added `vercel-sensitive-field-wrapper` component for secure field display
+- Implemented JavaScript handlers for visibility toggle and edit protection
+- Enhanced form submission handling to preserve original values
+- Added CSS styles for security indicators and controls
+- Removed infinite `shimmer` animation from `.vercel-edit-field::before` pseudo-element
+
+---
+
+## [1.0.5] - 2024-12-XX
+
+### Refactored
+
+- **Theme page management in preview manager** - Improved handling of theme page disabling in headless WordPress setup
+- Moved theme page disabling hooks to the constructor for early execution
+- Enhanced the `remove_themes_menu_item` method to ensure complete removal of the themes menu and its submenus
+- Improved the `redirect_themes_page` method to check for various conditions before redirecting
+- Added a new method to block direct access to the themes page and a CSS fallback to hide the Appearance menu
+- Ensured all changes respect the settings for disabling the theme page
+
+### Technical Changes
+
+- Better hook registration timing for theme page management
+- More robust theme menu removal with submenu handling
+- Enhanced redirect logic with multiple condition checks
+- CSS fallback for menu hiding when JavaScript is disabled
+
+---
+
 ## [1.0.4] - 2024-12-XX
 
 ### Enhanced

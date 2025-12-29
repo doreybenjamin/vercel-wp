@@ -1366,3 +1366,245 @@
     font-size: 20px;
   }
 }
+
+/* Sensitive Fields Security Styles */
+.vercel-sensitive-field-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 600px;
+  padding: 2px 0;
+}
+
+.vercel-sensitive-input {
+  flex: 1;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Droid Sans Mono', 'Source Code Pro', monospace;
+  letter-spacing: 1.5px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.vercel-sensitive-input[readonly] {
+  background-color: #f6f7f7 !important;
+  cursor: not-allowed !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.vercel-sensitive-input[readonly]:focus {
+  border-color: #c3c4c7;
+  box-shadow: none;
+  outline: none;
+  cursor: not-allowed !important;
+}
+
+.vercel-sensitive-input.vercel-editing {
+  border-color: #d63638;
+  box-shadow: 0 0 0 2px rgba(214, 54, 56, 0.2), 0 0 0 1px #d63638;
+  background-color: #ffffff !important;
+  cursor: text !important;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  animation: vercel-pulse-warning 2s ease-in-out infinite;
+}
+
+.vercel-sensitive-input.vercel-editing:focus {
+  border-color: #d63638;
+  box-shadow: 0 0 0 2px rgba(214, 54, 56, 0.2), 0 0 0 1px #d63638;
+  outline: none;
+}
+
+@keyframes vercel-pulse-warning {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(214, 54, 56, 0.2), 0 0 0 1px #d63638;
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(214, 54, 56, 0.1), 0 0 0 1px #d63638;
+  }
+}
+
+.vercel-edit-field {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  min-width: auto;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #dba617 0%, #b8950a 100%);
+  border: 1px solid #b8950a;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(219, 166, 23, 0.2);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.vercel-edit-field::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.vercel-edit-field:hover {
+  background: linear-gradient(135deg, #b8950a 0%, #997404 100%);
+  border-color: #997404;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(219, 166, 23, 0.3);
+}
+
+.vercel-edit-field:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(219, 166, 23, 0.3);
+}
+
+.vercel-edit-field:focus {
+  outline: 2px solid #dba617;
+  outline-offset: 2px;
+}
+
+/* When in editing mode, change button style to red/cancel */
+.vercel-sensitive-field-wrapper.editing-mode .vercel-edit-field {
+  background: linear-gradient(135deg, #d63638 0%, #b32d2e 100%);
+  border-color: #b32d2e;
+  box-shadow: 0 2px 4px rgba(214, 54, 56, 0.2);
+}
+
+.vercel-sensitive-field-wrapper.editing-mode .vercel-edit-field:hover {
+  background: linear-gradient(135deg, #b32d2e 0%, #8a2525 100%);
+  border-color: #8a2525;
+  box-shadow: 0 6px 12px rgba(214, 54, 56, 0.3);
+}
+
+/* Disabled state */
+.vercel-edit-field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.vercel-edit-field:disabled:hover {
+  background-color: #ffffff;
+  border-color: #c3c4c7;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Tooltip enhancement */
+.vercel-edit-field[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+  padding: 6px 10px;
+  background-color: #1d2327;
+  color: #ffffff;
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  animation: vercel-fade-in-tooltip 0.2s ease 0.3s forwards;
+}
+
+.vercel-edit-field[title]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: -1px;
+  border: 5px solid transparent;
+  border-top-color: #1d2327;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  animation: vercel-fade-in-tooltip 0.2s ease 0.3s forwards;
+}
+
+@keyframes vercel-fade-in-tooltip {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Security warning description */
+.vercel-sensitive-field-wrapper + .description.vercel-field-description {
+  margin-top: 6px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  color: #646970;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: none;
+  font-style: italic;
+}
+
+.vercel-sensitive-field-wrapper.editing-mode + .description.vercel-field-description {
+  color: #2271b1;
+  font-style: normal;
+}
+
+/* Mobile adjustments for sensitive fields */
+@media (max-width: 768px) {
+  .vercel-sensitive-field-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 100%;
+    gap: 8px;
+  }
+
+  .vercel-sensitive-input {
+    width: 100%;
+    font-size: 14px; /* Prevent zoom on iOS */
+  }
+
+  .vercel-edit-field {
+    width: 100%;
+    margin-top: 0;
+    min-height: 44px; /* Better touch target */
+    padding: 10px 16px;
+    justify-content: center;
+    font-size: 15px;
+  }
+
+  .vercel-sensitive-field-wrapper + .description {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+}

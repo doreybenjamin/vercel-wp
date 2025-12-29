@@ -118,7 +118,8 @@ class VercelWP_Deploy_Admin {
      * Field callback
      */
     public function field_callback($arguments) {
-        $value = get_option($arguments['uid']);
+        // Use encrypted getter for sensitive fields
+        $value = $this->get_encrypted_option($arguments['uid'], $arguments['default']);
         
         if (!$value) {
             $value = $arguments['default'];
@@ -126,25 +127,60 @@ class VercelWP_Deploy_Admin {
         
         // Determine placeholder based on field value
         $placeholder = $arguments['placeholder'];
+        $is_sensitive = in_array($arguments['uid'], array('vercel_api_key', 'webhook_address', 'vercel_site_id'));
+        $has_value = !empty($value);
+        
         if (empty($value)) {
             // Show placeholder when field is empty
             $display_value = '';
         } else {
-            // Show actual value when field has content
-            $display_value = $value;
+            // For sensitive fields with values, mask them by default
+            if ($is_sensitive && $has_value) {
+                $display_value = str_repeat('•', min(strlen($value), 20));
+            } else {
+                // Show actual value when field has content
+                $display_value = $value;
+            }
+        }
+        
+        // Determine input type - use password for sensitive fields when they have values
+        $input_type = $arguments['type'];
+        if ($is_sensitive && $has_value && $input_type === 'text') {
+            $input_type = 'password';
         }
         
         switch($arguments['type']) {
             case 'text':
             case 'password':
             case 'number':
-                printf(
-                    '<input name="%1$s" id="%1$s" type="%2$s" placeholder="%3$s" value="%4$s" class="regular-text" />',
-                    $arguments['uid'],
-                    $arguments['type'],
-                    $placeholder,
-                    esc_attr($display_value)
-                );
+                // Add wrapper for sensitive fields
+                if ($is_sensitive && $has_value) {
+                    printf(
+                        '<div class="vercel-sensitive-field-wrapper" style="display: flex; align-items: center; gap: 8px; max-width: 600px;">' .
+                        '<input name="%1$s" id="%1$s" type="%2$s" placeholder="%3$s" value="%4$s" class="regular-text vercel-sensitive-input" data-original-value="%5$s" readonly style="flex: 1; background-color: #f6f7f7; cursor: not-allowed;" />' .
+                        '<button type="button" class="button button-primary vercel-edit-field" data-field-id="%1$s" data-text-replace="%6$s" data-text-cancel="%7$s">' .
+                        esc_html(__('Éditer', 'vercel-wp')) .
+                        '</button>' .
+                        '</div>' .
+                        '<p class="description vercel-field-description" style="margin-top: 6px; color: #646970; font-size: 12px; line-height: 1.5;">%8$s</p>',
+                        $arguments['uid'],
+                        $input_type,
+                        $placeholder,
+                        esc_attr($display_value),
+                        esc_attr($value),
+                        esc_attr(__('Éditer', 'vercel-wp')),
+                        esc_attr(__('Annuler', 'vercel-wp')),
+                        esc_html(__('Valeur masquée pour sécurité. Cliquez sur "Éditer" pour la remplacer.', 'vercel-wp'))
+                    );
+                } else {
+                    printf(
+                        '<input name="%1$s" id="%1$s" type="%2$s" placeholder="%3$s" value="%4$s" class="regular-text" />',
+                        $arguments['uid'],
+                        $arguments['type'],
+                        $placeholder,
+                        esc_attr($display_value)
+                    );
+                }
                 break;
             case 'textarea':
                 printf(
@@ -159,7 +195,91 @@ class VercelWP_Deploy_Admin {
     
     // from wp-webhook-vercel-deploy
     /**
-     * Sanitize field input with enhanced validation
+     * Encrypt sensitive data before storing in database
+     */
+    private static function encrypt_sensitive_data($value) {
+        if (empty($value)) {
+            return $value;
+        }
+        
+        // Check if value is already encrypted (starts with our marker)
+        if (strpos($value, 'VERCEL_ENCRYPTED:') === 0) {
+            return $value; // Already encrypted
+        }
+        
+        // Use WordPress salt for encryption key
+        $key = wp_salt('auth');
+        
+        // Use AES-256-CBC encryption if OpenSSL is available
+        if (function_exists('openssl_encrypt')) {
+            $iv_length = openssl_cipher_iv_length('AES-256-CBC');
+            $iv = openssl_random_pseudo_bytes($iv_length);
+            $encrypted = openssl_encrypt($value, 'AES-256-CBC', $key, 0, $iv);
+            
+            if ($encrypted !== false) {
+                // Store IV with encrypted data
+                return 'VERCEL_ENCRYPTED:' . base64_encode($iv . $encrypted);
+            }
+        }
+        
+        // Fallback to simple obfuscation if OpenSSL is not available
+        // This is not secure but better than plain text
+        return 'VERCEL_ENCRYPTED:' . base64_encode($value . '|' . wp_hash($value));
+    }
+    
+    // from wp-webhook-vercel-deploy
+    /**
+     * Decrypt sensitive data when reading from database
+     */
+    private static function decrypt_sensitive_data($value) {
+        if (empty($value)) {
+            return $value;
+        }
+        
+        // Check if value is encrypted
+        if (strpos($value, 'VERCEL_ENCRYPTED:') !== 0) {
+            return $value; // Not encrypted, return as-is (for backward compatibility)
+        }
+        
+        // Remove marker
+        $encrypted_data = substr($value, strlen('VERCEL_ENCRYPTED:'));
+        $decoded = base64_decode($encrypted_data, true);
+        
+        if ($decoded === false) {
+            return ''; // Invalid base64
+        }
+        
+        // Use WordPress salt for decryption key
+        $key = wp_salt('auth');
+        
+        // Try AES-256-CBC decryption if OpenSSL is available
+        if (function_exists('openssl_decrypt')) {
+            $iv_length = openssl_cipher_iv_length('AES-256-CBC');
+            
+            if (strlen($decoded) > $iv_length) {
+                $iv = substr($decoded, 0, $iv_length);
+                $encrypted = substr($decoded, $iv_length);
+                $decrypted = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+                
+                if ($decrypted !== false) {
+                    return $decrypted;
+                }
+            }
+        }
+        
+        // Fallback: try to decode simple obfuscation
+        $parts = explode('|', $decoded);
+        if (count($parts) === 2 && wp_hash($parts[0]) === $parts[1]) {
+            return $parts[0];
+        }
+        
+        // If decryption fails, return empty (data corrupted or key changed)
+        return '';
+    }
+    
+    // from wp-webhook-vercel-deploy
+    /**
+     * Sanitize field input with enhanced validation and encryption
      */
     public function sanitize_field($value) {
         if (is_string($value)) {
@@ -173,6 +293,9 @@ class VercelWP_Deploy_Admin {
                 $field_name = str_replace('pre_update_option_', '', $filter_name);
             }
             
+            // Check if this is a sensitive field
+            $is_sensitive = in_array($field_name, array('vercel_api_key', 'webhook_address', 'vercel_site_id'));
+            
             // Additional validation for specific fields
             if ($field_name === 'webhook_address') {
                 if (!VercelWP_Deploy_API::validate_webhook_url($sanitized)) {
@@ -181,7 +304,7 @@ class VercelWP_Deploy_Admin {
                         'invalid_webhook_url',
                         __('Invalid webhook URL. Must be a valid HTTPS URL from Vercel domains.', 'vercel-wp')
                     );
-                    return get_option('webhook_address', ''); // Return previous value
+                    return $this->get_encrypted_option('webhook_address', ''); // Return previous value
                 }
             } elseif ($field_name === 'vercel_api_key') {
                 if (!VercelWP_Deploy_API::validate_api_key($sanitized)) {
@@ -190,7 +313,7 @@ class VercelWP_Deploy_Admin {
                         'invalid_api_key',
                         __('Invalid API key format. Must be at least 20 characters and contain only valid characters.', 'vercel-wp')
                     );
-                    return get_option('vercel_api_key', ''); // Return previous value
+                    return $this->get_encrypted_option('vercel_api_key', ''); // Return previous value
                 }
             } elseif ($field_name === 'vercel_site_id') {
                 if (!VercelWP_Deploy_API::validate_project_id($sanitized)) {
@@ -199,8 +322,13 @@ class VercelWP_Deploy_Admin {
                         'invalid_project_id',
                         __('Invalid project ID format. Must contain only valid characters and be between 5-100 characters.', 'vercel-wp')
                     );
-                    return get_option('vercel_site_id', ''); // Return previous value
+                    return $this->get_encrypted_option('vercel_site_id', ''); // Return previous value
                 }
+            }
+            
+            // Encrypt sensitive fields before saving
+            if ($is_sensitive && !empty($sanitized)) {
+                return self::encrypt_sensitive_data($sanitized);
             }
             
             return $sanitized;
@@ -208,6 +336,43 @@ class VercelWP_Deploy_Admin {
         
         if (is_array($value)) {
             return array_map('sanitize_text_field', $value);
+        }
+        
+        return $value;
+    }
+    
+    // from wp-webhook-vercel-deploy
+    /**
+     * Get option value with automatic decryption for sensitive fields
+     */
+    private function get_encrypted_option($option_name, $default = false) {
+        $value = get_option($option_name, $default);
+        
+        // Check if this is a sensitive field
+        $is_sensitive = in_array($option_name, array('vercel_api_key', 'webhook_address', 'vercel_site_id'));
+        
+        // Decrypt if sensitive
+        if ($is_sensitive && !empty($value)) {
+            return self::decrypt_sensitive_data($value);
+        }
+        
+        return $value;
+    }
+    
+    // from wp-webhook-vercel-deploy
+    /**
+     * Public static method to get decrypted sensitive option
+     * Used by other classes that need to access encrypted values
+     */
+    public static function get_sensitive_option($option_name, $default = false) {
+        $value = get_option($option_name, $default);
+        
+        // Check if this is a sensitive field
+        $is_sensitive = in_array($option_name, array('vercel_api_key', 'webhook_address', 'vercel_site_id'));
+        
+        // Decrypt if sensitive
+        if ($is_sensitive && !empty($value)) {
+            return self::decrypt_sensitive_data($value);
         }
         
         return $value;
@@ -256,7 +421,7 @@ class VercelWP_Deploy_Admin {
             'assets_url' => VERCEL_WP_PLUGIN_URL . 'assets/',
             'ajaxurl' => admin_url('admin-ajax.php'),
             'settings_url' => admin_url('admin.php?page=vercel-wp&tab=deploy'),
-            'webhook_url' => get_option('webhook_address', ''),
+            'webhook_url' => $this->get_encrypted_option('webhook_address', ''),
             // Security: API keys removed from client-side exposure
             'deploying_text' => __('Deploying…', 'vercel-wp'),
             'deploy_site_text' => __('Deploy Site', 'vercel-wp'),
@@ -303,7 +468,7 @@ class VercelWP_Deploy_Admin {
         $run_deploys = apply_filters('vercel_deploy_capability', 'manage_options');
 
         if (current_user_can($run_deploys)) {
-            $webhook_address = get_option('webhook_address');
+            $webhook_address = $this->get_encrypted_option('webhook_address');
 
             if ($webhook_address) {
                 $button = array(
@@ -316,7 +481,7 @@ class VercelWP_Deploy_Admin {
         }
 
         if (current_user_can($see_deploy_status)) {
-            $vercel_site_id = get_option('vercel_site_id');
+            $vercel_site_id = $this->get_encrypted_option('vercel_site_id');
     
             if ($vercel_site_id) {
                 $badge = array(
@@ -362,7 +527,7 @@ class VercelWP_Deploy_Admin {
      * Check if deployment is possible (only webhook URL required)
      */
     public function can_deploy() {
-        $webhook_url = get_option('webhook_address');
+        $webhook_url = $this->get_encrypted_option('webhook_address');
         return !empty($webhook_url);
     }
 
@@ -371,9 +536,9 @@ class VercelWP_Deploy_Admin {
      * Check configuration status and return detailed information
      */
     public function get_configuration_status() {
-        $webhook_address = get_option('webhook_address');
-        $vercel_api_key = get_option('vercel_api_key');
-        $vercel_site_id = get_option('vercel_site_id');
+        $webhook_address = $this->get_encrypted_option('webhook_address');
+        $vercel_api_key = $this->get_encrypted_option('vercel_api_key');
+        $vercel_site_id = $this->get_encrypted_option('vercel_site_id');
         
         $status = array(
             'is_configured' => true,
