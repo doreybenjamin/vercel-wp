@@ -62,6 +62,13 @@ class VercelWP_Preview_Manager {
         // Headless functionality hooks
         add_action('init', array($this, 'init_headless_functionality'));
         
+        // Register admin menu removal hook early (before init)
+        // This ensures it runs before WordPress renders the menu
+        add_action('admin_menu', array($this, 'remove_themes_menu_item'), 1);
+        add_action('admin_init', array($this, 'redirect_themes_page'), 1);
+        add_action('load-themes.php', array($this, 'block_themes_page_access'));
+        add_action('admin_head', array($this, 'hide_appearance_menu_css'));
+        
         // Admin bar URL fix - add hooks directly in constructor
         add_action('admin_footer', array($this, 'fix_admin_bar_urls_js'), 999);
         add_action('wp_footer', array($this, 'fix_admin_bar_urls_js'), 999);
@@ -1301,11 +1308,8 @@ class VercelWP_Preview_Manager {
             error_log('Vercel WP: No production URL configured');
         }
         
-        // Handle theme page disabling
-        if (isset($settings['disable_theme_page']) && $settings['disable_theme_page']) {
-            add_action('admin_menu', array($this, 'remove_themes_menu_item'), 999);
-            add_action('admin_init', array($this, 'redirect_themes_page'));
-        }
+        // Note: Theme page disabling hooks are now registered in constructor
+        // to ensure they run early enough. The functions check settings internally.
         
         // Redirect all public routes only if production URL is configured
         if (!empty($settings['production_url'])) {
@@ -1899,18 +1903,122 @@ class VercelWP_Preview_Manager {
      * Disable WordPress theme admin page
      */
     public function remove_themes_menu_item() {
+        // Double-check settings
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (!isset($settings['disable_theme_page']) || !$settings['disable_theme_page']) {
+            return;
+        }
+        
+        // Remove main themes menu (Appearance menu)
         remove_menu_page('themes.php');
+        
+        // Also remove all submenu items under Appearance
+        global $submenu;
+        if (isset($submenu['themes.php'])) {
+            // Remove all submenu items
+            unset($submenu['themes.php']);
+        }
+        
+        // Try multiple methods to remove submenu items
+        remove_submenu_page('themes.php', 'themes.php');
+        remove_submenu_page('themes.php', 'theme-install.php');
+        remove_submenu_page('themes.php', 'theme-editor.php');
+        remove_submenu_page('themes.php', 'customize.php');
+        remove_submenu_page('themes.php', 'widgets.php');
+        remove_submenu_page('themes.php', 'nav-menus.php');
+        
+        // Also remove via global $menu
+        global $menu;
+        foreach ($menu as $key => $item) {
+            if (isset($item[2]) && $item[2] === 'themes.php') {
+                unset($menu[$key]);
+            }
+        }
     }
     
     /**
      * Redirect themes page to admin dashboard
      */
     public function redirect_themes_page() {
+        // Double-check settings first
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (!isset($settings['disable_theme_page']) || !$settings['disable_theme_page']) {
+            return;
+        }
+        
         global $pagenow;
-        if ($pagenow == 'themes.php') {
-            wp_redirect(admin_url());
+        
+        // Check if we're on the themes page via various methods
+        $is_themes_page = false;
+        
+        // Method 1: Check pagenow global
+        if ($pagenow === 'themes.php') {
+            $is_themes_page = true;
+        }
+        
+        // Method 2: Check GET parameter
+        if (isset($_GET['page']) && $_GET['page'] === 'themes.php') {
+            $is_themes_page = true;
+        }
+        
+        // Method 3: Check REQUEST_URI
+        if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'themes.php') !== false) {
+            $is_themes_page = true;
+        }
+        
+        if ($is_themes_page) {
+            // Verify user has capability (should always be true if they reached admin)
+            if (current_user_can('manage_options')) {
+                wp_safe_redirect(admin_url('index.php'));
+                exit;
+            }
+        }
+    }
+    
+    /**
+     * Block direct access to themes.php page
+     * This hook fires before the themes page loads
+     */
+    public function block_themes_page_access() {
+        // Double-check settings
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (isset($settings['disable_theme_page']) && $settings['disable_theme_page']) {
+            wp_safe_redirect(admin_url('index.php'));
             exit;
         }
+    }
+    
+    /**
+     * Hide Appearance menu via CSS as fallback
+     */
+    public function hide_appearance_menu_css() {
+        // Double-check settings
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (!isset($settings['disable_theme_page']) || !$settings['disable_theme_page']) {
+            return;
+        }
+        
+        ?>
+        <style type="text/css">
+            /* Hide Appearance menu completely */
+            #toplevel_page_themes,
+            #menu-appearance,
+            li#toplevel_page_themes,
+            li#menu-appearance,
+            a[href*="themes.php"],
+            a[href*="theme-install.php"],
+            a[href*="theme-editor.php"] {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            
+            /* Hide Appearance submenu items */
+            #toplevel_page_themes ul.wp-submenu,
+            #menu-appearance ul.wp-submenu {
+                display: none !important;
+            }
+        </style>
+        <?php
     }
     
     /**
