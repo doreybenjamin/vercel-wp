@@ -4,7 +4,7 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Vercel WP 2.0.0\n"
+"Project-Id-Version: Vercel WP 1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/doreybenjamin/vercel-wp/issues\n"
 "POT-Creation-Date: 2024-01-01 12:00+0000\n"
 "PO-Revision-Date: 2024-01-01 12:00+0000\n"

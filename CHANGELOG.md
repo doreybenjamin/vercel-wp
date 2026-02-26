@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1] - 2026-02-26
+
+### Added
+
+- **New Preview mode: Draft + Revalidate (framework-agnostic)** for SSR/headless frontends.
+- **Generated shared secret** exposed in BO for frontend configuration:
+  - `HEADLESS_PREVIEW_SECRET=<value>`
+- **Secret workflow updated**:
+  - secret is now empty by default,
+  - dedicated button to generate/regenerate a random value,
+  - secret required when `Draft + Revalidate` mode is selected.
+- **Support for configurable secret parameter name** in Draft/Revalidate endpoints.
+
+### Improved
+
+- **Preview mode naming clarified**:
+  - `Static (Preview URL mapping)` (Astro, Gatsby, static frontends)
+  - `Draft + Revalidate (frameworks SSR)` (Next.js, Nuxt, others)
+- **French UI harmonization** in Preview settings and related messages.
+- **README simplified and redesigned** for quicker onboarding and clearer feature overview.
+
+### Changed
+
+- Plugin version bumped to **1.1**.
+
 ## [1.0.6] - 2025-01-27
 
 ### Security Enhanced
