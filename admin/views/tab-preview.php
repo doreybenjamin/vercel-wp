@@ -198,7 +198,7 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
     </div>
 <?php endif; ?>
 
-<div class="vercel-preview-layout" style="display: flex; gap: 20px; margin-top: 20px;">
+<div class="vercel-preview-layout" style="display: flex; gap: 20px; margin-top: 20px; padding-right: 20px; box-sizing: border-box;">
     <!-- Main Content (70%) -->
     <div class="vercel-preview-main" style="flex: 1; max-width: 70%;">
         <h2><?php _e('Réglages de preview', 'vercel-wp'); ?></h2>
@@ -536,6 +536,11 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
 </script>
 
 <style>
+.vercel-preview-layout {
+    padding-right: 20px;
+    box-sizing: border-box;
+}
+
 @media (max-width: 1280px) {
     .vercel-preview-layout {
         flex-direction: column !important;

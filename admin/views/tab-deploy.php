@@ -14,7 +14,7 @@ defined('ABSPATH') or die('Access denied');
 $deploy_admin = VercelWP_Deploy_Plugin::get_instance()->get_admin_handler();
 ?>
 
-<div class="vercel-deploy-layout" style="display: flex; gap: 20px; margin-top: 20px;">
+<div class="vercel-deploy-layout" style="display: flex; gap: 20px; margin-top: 20px; padding-right: 20px; box-sizing: border-box;">
     <!-- Main Content (70%) -->
     <div class="vercel-deploy-main" style="flex: 1; max-width: 70%;">
         <?php $deploy_admin->render_main_page_content(); ?>
@@ -31,6 +31,11 @@ $deploy_admin = VercelWP_Deploy_Plugin::get_instance()->get_admin_handler();
 </div>
 
 <style>
+.vercel-deploy-layout {
+    padding-right: 20px;
+    box-sizing: border-box;
+}
+
 @media (max-width: 1280px) {
     .vercel-deploy-layout {
         flex-direction: column !important;
@@ -41,4 +46,3 @@ $deploy_admin = VercelWP_Deploy_Plugin::get_instance()->get_admin_handler();
     }
 }
 </style>
-

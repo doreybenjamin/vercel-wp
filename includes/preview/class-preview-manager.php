@@ -45,6 +45,8 @@ class VercelWP_Preview_Manager {
         add_action('wp_ajax_vercel_wp_preview_inspect_acf_field', array($this, 'ajax_inspect_acf_field'));
         add_action('wp_ajax_vercel_wp_preview_test_permalinks', array($this, 'ajax_test_permalinks'));
         add_action('wp_ajax_vercel_wp_preview_clear_permalink_cache', array($this, 'ajax_clear_permalink_cache'));
+        add_filter('theme_page_templates', array($this, 'register_custom_page_templates'), 20, 4);
+        add_filter('template_include', array($this, 'use_custom_page_template'), 20);
         
         
         // Hook to add preview button in editor
@@ -161,6 +163,100 @@ class VercelWP_Preview_Manager {
             FILTER_VALIDATE_IP,
             FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
         ) !== false;
+    }
+
+    /**
+     * Return sanitized custom templates registered from plugin options.
+     */
+    private function get_custom_page_templates() {
+        $templates = get_option('vercel_wp_custom_page_templates', array());
+        if (!is_array($templates)) {
+            return array();
+        }
+
+        $normalized = array();
+
+        foreach ($templates as $template_file => $template_data) {
+            $template_file = sanitize_file_name((string) $template_file);
+            if (empty($template_file)) {
+                continue;
+            }
+
+            if (!is_array($template_data)) {
+                $template_data = array();
+            }
+
+            $name = isset($template_data['name']) ? sanitize_text_field($template_data['name']) : '';
+            if ($name === '') {
+                $name = ucfirst(trim(str_replace(array('vercel-wp-template-', 'template-', '.php', '-', '_'), array('', '', '', ' ', ' '), $template_file)));
+            }
+
+            $slug = isset($template_data['slug']) ? sanitize_title($template_data['slug']) : '';
+            if ($slug === '') {
+                $slug = sanitize_title(str_replace(array('vercel-wp-template-', 'template-', '.php'), '', $template_file));
+            }
+
+            $description = isset($template_data['description']) ? sanitize_text_field($template_data['description']) : '';
+
+            $normalized[$template_file] = array(
+                'name' => $name,
+                'slug' => $slug,
+                'description' => $description,
+            );
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Expose plugin templates in the WordPress "Page Attributes > Template" selector.
+     */
+    public function register_custom_page_templates($page_templates, $wp_theme = null, $post = null, $post_type = 'page') {
+        if ($post_type !== 'page') {
+            return $page_templates;
+        }
+
+        $custom_templates = $this->get_custom_page_templates();
+        if (empty($custom_templates)) {
+            return $page_templates;
+        }
+
+        foreach ($custom_templates as $template_file => $template_data) {
+            $page_templates[$template_file] = $template_data['name'];
+        }
+
+        return $page_templates;
+    }
+
+    /**
+     * Route custom template slugs to a plugin renderer.
+     */
+    public function use_custom_page_template($template) {
+        if (!is_singular('page')) {
+            return $template;
+        }
+
+        $page_id = get_queried_object_id();
+        if (empty($page_id)) {
+            return $template;
+        }
+
+        $selected_template = get_page_template_slug($page_id);
+        if (empty($selected_template) || $selected_template === 'default') {
+            return $template;
+        }
+
+        $custom_templates = $this->get_custom_page_templates();
+        if (!isset($custom_templates[$selected_template])) {
+            return $template;
+        }
+
+        $renderer = VERCEL_WP_PLUGIN_DIR . 'includes/preview/template-custom-page.php';
+        if (!file_exists($renderer)) {
+            return $template;
+        }
+
+        return $renderer;
     }
     
     /**

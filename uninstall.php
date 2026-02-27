@@ -19,6 +19,7 @@ delete_option('vercel_site_id');
 // from plugin-headless-preview
 // Delete preview options
 delete_option('vercel_wp_preview_settings');
+delete_option('vercel_wp_custom_page_templates');
 
 // Clear any transients
 global $wpdb;

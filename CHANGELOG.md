@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-02-27
+
+### Added
+
+- **Custom page template management in Options page**:
+  - create plugin-managed templates directly from `Options`,
+  - template filename format now uses `template-<slug>.php`,
+  - delete action added in template list with confirmation prompt.
+- **Plugin-managed template registration for pages**:
+  - custom templates are injected into `Page Attributes > Template`,
+  - custom template rendering is routed through plugin fallback template handling.
+
+### Changed
+
+- **Options page templates UI simplified**:
+  - removed page-creation workflow (`title/slug/status`) in favor of true template creation,
+  - removed optional fields from template creation form and auto-generate slug from template name,
+  - preserve user-entered template name casing in UI (e.g. `Contact` stays `Contact`).
+- **Admin page spacing harmonized**:
+  - added right-side spacing/padding on `Deploy`, `Preview`, and `Options` layouts for consistent alignment.
+
+### Fixed
+
+- **Template list duplicate/inconsistent rows** on Options page:
+  - normalized template name/file mapping regardless of WordPress return format,
+  - merged theme and plugin templates into a single stable display source.
+- **Template action visibility**:
+  - ensured delete button is displayed for plugin templates even when theme template lookup does not expose them directly.
+
 ## [1.1.1] - 2026-02-27
 
 ### Changed
