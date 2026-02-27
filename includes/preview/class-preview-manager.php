@@ -65,9 +65,12 @@ class VercelWP_Preview_Manager {
         // Register admin menu removal hook early (before init)
         // This ensures it runs before WordPress renders the menu
         add_action('admin_menu', array($this, 'remove_themes_menu_item'), 1);
+        add_action('admin_menu', array($this, 'add_headless_menus_shortcut'), 80);
+        add_action('admin_init', array($this, 'ensure_headless_theme_supports'), 0);
         add_action('admin_init', array($this, 'redirect_themes_page'), 1);
         add_action('load-themes.php', array($this, 'block_themes_page_access'));
         add_action('admin_head', array($this, 'hide_appearance_menu_css'));
+        add_action('after_setup_theme', array($this, 'ensure_headless_theme_supports'), 20);
         
         // Admin bar URL fix - add hooks directly in constructor
         add_action('admin_footer', array($this, 'fix_admin_bar_urls_js'), 999);
@@ -285,7 +288,8 @@ class VercelWP_Preview_Manager {
             'auto_refresh' => true,
             'show_button_admin_bar' => true,
             'show_button_editor' => true,
-            'disable_theme_page' => true
+            'disable_theme_page' => true,
+            'headless_show_menus_menu' => true
         ));
         
         // Define constants based on settings
@@ -713,6 +717,7 @@ class VercelWP_Preview_Manager {
         $settings['show_button_admin_bar'] = isset($_POST['show_button_admin_bar']);
         $settings['show_button_editor'] = isset($_POST['show_button_editor']);
         $settings['disable_theme_page'] = isset($_POST['disable_theme_page']);
+        $settings['headless_show_menus_menu'] = isset($_POST['headless_show_menus_menu']);
         
         // Preserve last production URL for comparison
         $settings['last_production_url'] = $old_production_url;
@@ -1499,6 +1504,10 @@ class VercelWP_Preview_Manager {
             }
         }
 
+        if (isset($_POST['headless_show_menus_menu'])) {
+            $settings['headless_show_menus_menu'] = filter_var(wp_unslash($_POST['headless_show_menus_menu']), FILTER_VALIDATE_BOOLEAN);
+        }
+
         $current_mode = isset($settings['framework_mode']) ? sanitize_key($settings['framework_mode']) : 'static';
         if ($current_mode === 'draft_revalidate' && empty(trim((string) ($settings['draft_revalidate_secret'] ?? '')))) {
             wp_send_json_error(array('message' => __('Le secret est obligatoire en mode Draft + Revalidate. Utilisez le bouton "Générer".', 'vercel-wp')));
@@ -1754,7 +1763,8 @@ class VercelWP_Preview_Manager {
             'auto_refresh' => true,
             'show_button_admin_bar' => true,
             'show_button_editor' => true,
-            'disable_theme_page' => true
+            'disable_theme_page' => true,
+            'headless_show_menus_menu' => true
         );
         
         $updated = false;
@@ -2353,6 +2363,59 @@ class VercelWP_Preview_Manager {
         </script>
         <?php
     }
+
+    /**
+     * Ensure menus/widgets are available in headless mode.
+     */
+    public function ensure_headless_theme_supports() {
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (empty($settings['disable_theme_page']) || empty($settings['headless_show_menus_menu'])) {
+            return;
+        }
+
+        if (!current_theme_supports('menus')) {
+            add_theme_support('menus');
+        }
+
+        if (!current_theme_supports('widgets')) {
+            add_theme_support('widgets');
+        }
+    }
+
+    /**
+     * Add a direct "Menus" item in admin sidebar for headless setups.
+     */
+    public function add_headless_menus_shortcut() {
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (empty($settings['disable_theme_page']) || empty($settings['headless_show_menus_menu'])) {
+            return;
+        }
+
+        add_menu_page(
+            __('Menus', 'vercel-wp'),
+            __('Menus', 'vercel-wp'),
+            'edit_theme_options',
+            'vercel-wp-headless-menus',
+            array($this, 'render_headless_menus_shortcut'),
+            'dashicons-menu-alt3',
+            61
+        );
+    }
+
+    /**
+     * Redirect shortcut page to WordPress nav menus screen.
+     */
+    public function render_headless_menus_shortcut() {
+        if (!current_user_can('edit_theme_options')) {
+            wp_die(__('Permission refusée', 'vercel-wp'));
+        }
+        $menus_url = admin_url('nav-menus.php');
+        echo '<div class="wrap"><h1>' . esc_html__('Menus', 'vercel-wp') . '</h1>';
+        echo '<p>' . esc_html__('Redirection vers la page Menus…', 'vercel-wp') . '</p>';
+        echo '<p><a class="button button-primary" href="' . esc_url($menus_url) . '">' . esc_html__('Ouvrir Menus', 'vercel-wp') . '</a></p>';
+        echo '<script>window.location.replace(' . wp_json_encode($menus_url) . ');</script>';
+        echo '</div>';
+    }
     
     /**
      * Disable WordPress theme admin page
@@ -2460,9 +2523,9 @@ class VercelWP_Preview_Manager {
             #menu-appearance,
             li#toplevel_page_themes,
             li#menu-appearance,
-            a[href*="themes.php"],
-            a[href*="theme-install.php"],
-            a[href*="theme-editor.php"] {
+            #adminmenu a[href*="themes.php"],
+            #adminmenu a[href*="theme-install.php"],
+            #adminmenu a[href*="theme-editor.php"] {
                 display: none !important;
                 visibility: hidden !important;
             }
