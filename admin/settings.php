@@ -1,9 +1,7 @@
 <?php
 /**
- * Vercel WP - Main Settings Page with Tabs
- * 
- * Combines Deploy and Preview settings in one unified interface
- * 
+ * Vercel WP - Main Settings Pages
+ *
  * @package VercelWP
  * @since 2.0.0
  */
@@ -27,31 +25,47 @@ class VercelWP_Settings {
     }
     
     /**
-     * Add admin menu
+     * Add admin menu and subpages.
      */
     public function add_admin_menu() {
         $capability = apply_filters('vercel_wp_settings_capability', 'manage_options');
         
         if (current_user_can($capability)) {
-            // Main menu page
             add_menu_page(
                 __('Vercel WP', 'vercel-wp'),
                 __('Vercel WP', 'vercel-wp'),
                 $capability,
                 'vercel-wp',
-                array($this, 'render_settings_page'),
+                array($this, 'render_deploy_page'),
                 VERCEL_WP_PLUGIN_URL . 'assets/vercel-logo.svg',
                 100
             );
-            
-            // Add submenu to avoid duplicate menu title
+
             add_submenu_page(
                 'vercel-wp',
-                __('Settings', 'vercel-wp'),
-                __('Settings', 'vercel-wp'),
+                __('Deploy', 'vercel-wp'),
+                __('Deploy', 'vercel-wp'),
                 $capability,
                 'vercel-wp',
-                array($this, 'render_settings_page')
+                array($this, 'render_deploy_page')
+            );
+
+            add_submenu_page(
+                'vercel-wp',
+                __('Preview', 'vercel-wp'),
+                __('Preview', 'vercel-wp'),
+                $capability,
+                'vercel-wp-preview',
+                array($this, 'render_preview_page')
+            );
+
+            add_submenu_page(
+                'vercel-wp',
+                __('Options', 'vercel-wp'),
+                __('Options', 'vercel-wp'),
+                $capability,
+                'vercel-wp-options',
+                array($this, 'render_options_page')
             );
         }
     }
@@ -65,78 +79,75 @@ class VercelWP_Settings {
     }
     
     /**
-     * Render main settings page with tabs
+     * Legacy entrypoint kept for compatibility.
      */
     public function render_settings_page() {
-        // Get current tab
-        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'deploy';
-        
-        ?>
-        <div class="wrap vercel-wp-settings">
-            <h1><?php _e('Vercel WP Settings', 'vercel-wp'); ?></h1>
-            <p class="description"><?php _e('Configure your Vercel deployment and preview settings', 'vercel-wp'); ?></p>
-            
-            <!-- Tab Navigation -->
-            <h2 class="nav-tab-wrapper">
-                <a href="?page=vercel-wp&tab=deploy" 
-                   class="nav-tab <?php echo $active_tab === 'deploy' ? 'nav-tab-active' : ''; ?>">
-                    <span class="dashicons dashicons-hammer" style="font-size: 16px; line-height: 1.3;"></span>
-                    <?php _e('Deploy', 'vercel-wp'); ?>
-                </a>
-                <a href="?page=vercel-wp&tab=preview" 
-                   class="nav-tab <?php echo $active_tab === 'preview' ? 'nav-tab-active' : ''; ?>">
-                    <?php _e('Preview', 'vercel-wp'); ?>
-                </a>
-            </h2>
-            
-            <!-- Tab Content -->
-            <div class="vercel-wp-tab-content">
-                <?php
-                switch ($active_tab) {
-                    case 'preview':
-                        $this->render_preview_tab();
-                        break;
-                    case 'deploy':
-                    default:
-                        $this->render_deploy_tab();
-                        break;
-                }
-                ?>
-            </div>
-        </div>
-        
-        <style>
-            .vercel-wp-settings .nav-tab-wrapper {
-                margin-bottom: 20px;
+        $this->render_deploy_page();
+    }
+
+    /**
+     * Redirect legacy tab URLs to dedicated pages.
+     */
+    private function maybe_redirect_legacy_tab_query() {
+        if (!isset($_GET['tab'])) {
+            return;
+        }
+
+        $legacy_tab = sanitize_key(wp_unslash($_GET['tab']));
+        $tab_to_page = array(
+            'deploy' => 'vercel-wp',
+            'preview' => 'vercel-wp-preview',
+            'options' => 'vercel-wp-options',
+        );
+
+        if (!isset($tab_to_page[$legacy_tab])) {
+            return;
+        }
+
+        $redirect_args = array(
+            'page' => $tab_to_page[$legacy_tab],
+        );
+
+        $passthrough_params = array(
+            'vercel_wp_notice',
+            'vercel_wp_production_changed',
+            'vercel_wp_options_notice',
+        );
+        foreach ($passthrough_params as $param) {
+            if (isset($_GET[$param])) {
+                $redirect_args[$param] = sanitize_text_field(wp_unslash($_GET[$param]));
             }
-            .vercel-wp-tab-content {
-                background: #fff;
-                padding: 20px;
-                border: 1px solid #ccd0d4;
-                border-top: none;
-                box-shadow: 0 1px 1px rgba(0,0,0,.04);
-            }
-        </style>
-        <?php
+        }
+
+        $redirect_url = add_query_arg($redirect_args, admin_url('admin.php'));
+        if (!headers_sent()) {
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
     }
     
     /**
-     * Render Deploy tab content
+     * Render Deploy page content.
      */
-    private function render_deploy_tab() {
-        // from wp-webhook-vercel-deploy
+    public function render_deploy_page() {
+        $this->maybe_redirect_legacy_tab_query();
         include VERCEL_WP_PLUGIN_DIR . 'admin/views/tab-deploy.php';
     }
     
     /**
-     * Render Preview tab content
+     * Render Preview page content.
      */
-    private function render_preview_tab() {
-        // from plugin-headless-preview
+    public function render_preview_page() {
         include VERCEL_WP_PLUGIN_DIR . 'admin/views/tab-preview.php';
+    }
+
+    /**
+     * Render Options page content.
+     */
+    public function render_options_page() {
+        include VERCEL_WP_PLUGIN_DIR . 'admin/views/tab-options.php';
     }
 }
 
 // Initialize settings page
 VercelWP_Settings::get_instance();
-

@@ -429,7 +429,7 @@ class VercelWP_Deploy_Admin {
             'deployments' => wp_create_nonce('vercel_deployments_nonce'),
             'assets_url' => VERCEL_WP_PLUGIN_URL . 'assets/',
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'settings_url' => admin_url('admin.php?page=vercel-wp&tab=deploy'),
+            'settings_url' => admin_url('admin.php?page=vercel-wp'),
             'has_webhook' => !empty($this->get_encrypted_option('webhook_address', '')),
             // Security: API keys removed from client-side exposure
             'deploying_text' => __('Deploying…', 'vercel-wp'),
@@ -608,7 +608,7 @@ class VercelWP_Deploy_Admin {
             <div class="notice notice-error">
                 <p><strong><?php _e('Deployment Not Available', 'vercel-wp');?></strong></p>
                 <p><?php _e('Webhook URL is required to deploy your site. Please configure it in the settings.', 'vercel-wp');?></p>
-                <p><a href="<?php echo admin_url('admin.php?page=vercel-wp&tab=deploy'); ?>" class="button button-primary">
+                <p><a href="<?php echo admin_url('admin.php?page=vercel-wp'); ?>" class="button button-primary">
                     <?php _e('Configure Webhook URL', 'vercel-wp');?>
                 </a></p>
             </div>
@@ -625,7 +625,7 @@ class VercelWP_Deploy_Admin {
                         <?php endif; ?>
                     <?php endforeach; ?>
                 </ul>
-                <p><a href="<?php echo admin_url('admin.php?page=vercel-wp&tab=deploy'); ?>" class="button">
+                <p><a href="<?php echo admin_url('admin.php?page=vercel-wp'); ?>" class="button">
                     <?php _e('Configure Additional Settings', 'vercel-wp');?>
                 </a></p>
             </div>

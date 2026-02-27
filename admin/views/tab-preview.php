@@ -33,10 +33,6 @@ $framework_mode_value = (
     isset($settings['framework_mode']) && in_array($settings['framework_mode'], array('nextjs', 'draft_revalidate'), true)
 ) ? 'draft_revalidate' : 'static';
 $is_draft_revalidate_mode = ($framework_mode_value === 'draft_revalidate');
-$functions_admin_url = add_query_arg('file', 'functions.php', admin_url('theme-editor.php'));
-$show_headless_menus_menu = !empty($settings['headless_show_menus_menu']);
-$can_access_menus = current_user_can('edit_theme_options');
-$can_access_functions = current_user_can('edit_themes');
 $notice_key = isset($_GET['vercel_wp_notice']) ? sanitize_key(wp_unslash($_GET['vercel_wp_notice'])) : '';
 $show_production_change_notice = isset($_GET['vercel_wp_production_changed']) && '1' === sanitize_text_field(wp_unslash($_GET['vercel_wp_production_changed']));
 $client_redirect_url = '';
@@ -151,21 +147,13 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
             $settings['cache_duration'] = intval($_POST['cache_duration']);
         }
         
-        // Checkboxes
-        $settings['auto_refresh'] = isset($_POST['auto_refresh']);
-        $settings['show_button_admin_bar'] = isset($_POST['show_button_admin_bar']);
-        $settings['show_button_editor'] = isset($_POST['show_button_editor']);
-        $settings['disable_theme_page'] = isset($_POST['disable_theme_page']);
-        $settings['headless_show_menus_menu'] = isset($_POST['headless_show_menus_menu']);
-        
         if (!$has_validation_error) {
             update_option('vercel_wp_preview_settings', $settings);
 
             $new_production_url = $settings['production_url'];
-            $page_slug = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : 'vercel-wp';
+            $page_slug = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : 'vercel-wp-preview';
             $redirect_args = array(
                 'page' => $page_slug,
-                'tab' => 'preview',
                 'vercel_wp_notice' => $secret_regenerated ? 'secret_regenerated' : 'settings_saved',
             );
 
@@ -214,7 +202,7 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
     <!-- Main Content (70%) -->
     <div class="vercel-preview-main" style="flex: 1; max-width: 70%;">
         <h2><?php _e('Réglages de preview', 'vercel-wp'); ?></h2>
-        <p><?php _e('Configurez votre preview Vercel et vos réglages WordPress headless.', 'vercel-wp'); ?></p>
+        <p><?php _e('Configurez votre preview Vercel (URLs, mode framework et cache).', 'vercel-wp'); ?></p>
     
     <form method="post" action="">
         <?php wp_nonce_field('vercel_wp_preview_settings', 'vercel_wp_preview_settings_nonce'); ?>
@@ -428,71 +416,6 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
                 </td>
             </tr>
             
-            <tr>
-                <th scope="row"><?php _e('Options d\'affichage', 'vercel-wp'); ?></th>
-                <td>
-                    <fieldset>
-                        <label>
-                            <input type="checkbox" name="show_button_admin_bar" value="1" 
-                                   <?php checked($settings['show_button_admin_bar'], true); ?> />
-                            <?php _e('Afficher le bouton de preview dans la barre d\'administration', 'vercel-wp'); ?>
-                        </label>
-                        <br>
-                        <label>
-                            <input type="checkbox" name="show_button_editor" value="1" 
-                                   <?php checked($settings['show_button_editor'], true); ?> />
-                            <?php _e('Afficher les boutons de preview dans l\'éditeur', 'vercel-wp'); ?>
-                        </label>
-                        <br>
-                        <label>
-                            <input type="checkbox" name="auto_refresh" value="1" 
-                                   <?php checked($settings['auto_refresh'], true); ?> />
-                            <?php _e('Activer l\'actualisation automatique de la preview', 'vercel-wp'); ?>
-                        </label>
-                    </fieldset>
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row"><?php _e('Options headless', 'vercel-wp'); ?></th>
-                <td>
-                    <fieldset>
-                        <label>
-                            <input type="checkbox" name="disable_theme_page" value="1" 
-                                   <?php checked($settings['disable_theme_page'], true); ?> />
-                            <?php _e('Désactiver la page des thèmes WordPress (configuration headless)', 'vercel-wp'); ?>
-                        </label>
-                        <p class="description">
-                            <?php _e('Quand activé, la page Apparence → Thèmes sera masquée et redirigée.', 'vercel-wp'); ?>
-                        </p>
-                        <label>
-                            <input type="checkbox" name="headless_show_menus_menu" value="1"
-                                   <?php checked($show_headless_menus_menu, true); ?> />
-                            <?php _e('Afficher "Menus" dans la barre latérale admin', 'vercel-wp'); ?>
-                        </label>
-
-                        <div style="margin-top: 12px; padding: 10px; border: 1px solid #dcdcde; border-radius: 4px; background: #f8f9fa;">
-                            <strong><?php _e('Accès rapides', 'vercel-wp'); ?></strong>
-                            <p class="description" style="margin-top: 6px;">
-                                <?php _e('Menus s’affiche dans la barre latérale si activé ci-dessus. Le bouton ci-dessous ouvre functions.php.', 'vercel-wp'); ?>
-                            </p>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <?php if ($can_access_functions) : ?>
-                                    <a class="button button-secondary" href="<?php echo esc_url($functions_admin_url); ?>">
-                                        <?php _e('Ouvrir functions.php', 'vercel-wp'); ?>
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-
-                            <?php if ($show_headless_menus_menu && $can_access_menus) : ?>
-                                <p class="description" style="margin: 8px 0 0;">
-                                    <?php _e('L’entrée "Menus" est disponible dans la barre latérale admin.', 'vercel-wp'); ?>
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                    </fieldset>
-                </td>
-            </tr>
         </table>
         
         <?php submit_button(); ?>

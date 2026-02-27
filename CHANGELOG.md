@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-02-27
+
+### Changed
+
+- **Admin settings navigation migrated to dedicated pages**:
+  - `Deploy` (`admin.php?page=vercel-wp`)
+  - `Preview` (`admin.php?page=vercel-wp-preview`)
+  - `Options` (`admin.php?page=vercel-wp-options`)
+- **Preview settings page streamlined** to keep only preview-related configuration.
+- **Display and Headless toggles moved** to the dedicated `Options` page.
+
+### Improved
+
+- **Backward compatibility for legacy tab URLs**:
+  - old `?page=vercel-wp&tab=...` links now redirect to the matching dedicated page.
+- **Deploy module internal settings links updated** to the new dedicated Deploy page URL.
+
 ## [1.1] - 2026-02-26
 
 ### Added
@@ -22,6 +39,14 @@ All notable changes to this project will be documented in this file.
   - `Draft + Revalidate (frameworks SSR)` (Next.js, Nuxt, others)
 - **French UI harmonization** in Preview settings and related messages.
 - **README simplified and redesigned** for quicker onboarding and clearer feature overview.
+
+### Fixed
+
+- **Framework mode field visibility** in Preview settings:
+  - switching between `Static` and `Draft + Revalidate` now reliably updates visible fields in the UI.
+- **Headless "Menus" sidebar toggle save flow**:
+  - setting now applies on first save without requiring a manual reload.
+  - added a safe redirect fallback when another plugin has already sent output (avoids `Cannot modify header information` warnings).
 
 ### Changed
 
