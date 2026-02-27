@@ -15,12 +15,23 @@ Vercel WP gives editors and developers a single place to:
 
 No dashboard hopping, no complex manual flow.
 
+## Latest Updates (1.1.2)
+
+- New **Options** page workflow to create plugin-managed page templates.
+- Template names are preserved as entered (case-sensitive display, e.g. `Contact`).
+- Template filenames now use a simpler format: `template-<slug>.php`.
+- Template list now includes delete action with confirmation.
+- Template list rendering improved to avoid duplicate/inconsistent rows.
+- Admin layout spacing harmonized across **Deploy**, **Preview**, and **Options** pages.
+
 ## Core Features
 
 | Area | What you get |
 |---|---|
 | Deploy | One-click deploy trigger, deployment status, deployment history |
 | Preview | Admin bar + editor preview buttons, split-screen preview tools |
+| Options | Global display/headless toggles + template management |
+| Page templates | Create/delete plugin-managed templates for pages |
 | Headless URL mapping | WordPress URL -> frontend URL mapping |
 | Cache/ISR | Revalidation trigger from WordPress |
 | Migration tools | Massive URL replacement with preview + confirmation |
@@ -56,7 +67,13 @@ Use the same value in your frontend environment variables.
 
 1. Upload `vercel-wp` to `/wp-content/plugins/`.
 2. Activate the plugin in WordPress.
-3. Open `Vercel WP > Settings`.
+3. Open `Vercel WP` in WordPress admin.
+
+The plugin now uses dedicated admin pages:
+
+- `Vercel WP > Deploy`
+- `Vercel WP > Preview`
+- `Vercel WP > Options`
 
 ### Deploy Tab
 
@@ -74,6 +91,18 @@ Then trigger deployments from settings or admin bar.
 2. Configure required frontend URLs/endpoints.
 3. Set production URL for mapping and permalink rewriting.
 4. Test connection.
+
+### Options Tab
+
+Use `Options` to:
+
+- configure global display/headless behavior,
+- create page templates managed by the plugin,
+- remove plugin templates with confirmation.
+
+Templates created here are available in page editor under:
+
+- `Page Attributes > Template`
 
 ## URL & Headless Management
 
