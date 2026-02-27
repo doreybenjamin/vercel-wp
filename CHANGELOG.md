@@ -2,53 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.2] - 2026-02-27
-
-### Added
-
-- **Custom page template management in Options page**:
-  - create plugin-managed templates directly from `Options`,
-  - template filename format now uses `template-<slug>.php`,
-  - delete action added in template list with confirmation prompt.
-- **Plugin-managed template registration for pages**:
-  - custom templates are injected into `Page Attributes > Template`,
-  - custom template rendering is routed through plugin fallback template handling.
-
-### Changed
-
-- **Options page templates UI simplified**:
-  - removed page-creation workflow (`title/slug/status`) in favor of true template creation,
-  - removed optional fields from template creation form and auto-generate slug from template name,
-  - preserve user-entered template name casing in UI (e.g. `Contact` stays `Contact`).
-- **Admin page spacing harmonized**:
-  - added right-side spacing/padding on `Deploy`, `Preview`, and `Options` layouts for consistent alignment.
-
-### Fixed
-
-- **Template list duplicate/inconsistent rows** on Options page:
-  - normalized template name/file mapping regardless of WordPress return format,
-  - merged theme and plugin templates into a single stable display source.
-- **Template action visibility**:
-  - ensured delete button is displayed for plugin templates even when theme template lookup does not expose them directly.
-
-## [1.1.1] - 2026-02-27
-
-### Changed
-
-- **Admin settings navigation migrated to dedicated pages**:
-  - `Deploy` (`admin.php?page=vercel-wp`)
-  - `Preview` (`admin.php?page=vercel-wp-preview`)
-  - `Options` (`admin.php?page=vercel-wp-options`)
-- **Preview settings page streamlined** to keep only preview-related configuration.
-- **Display and Headless toggles moved** to the dedicated `Options` page.
-
-### Improved
-
-- **Backward compatibility for legacy tab URLs**:
-  - old `?page=vercel-wp&tab=...` links now redirect to the matching dedicated page.
-- **Deploy module internal settings links updated** to the new dedicated Deploy page URL.
-
-## [1.1] - 2026-02-26
+## [1.1] - 2026-02-27
 
 ### Added
 
@@ -60,6 +14,13 @@ All notable changes to this project will be documented in this file.
   - dedicated button to generate/regenerate a random value,
   - secret required when `Draft + Revalidate` mode is selected.
 - **Support for configurable secret parameter name** in Draft/Revalidate endpoints.
+- **Custom page template management in Options page**:
+  - create plugin-managed templates directly from `Options`,
+  - template filename format now uses `template-<slug>.php`,
+  - delete action available in template list with confirmation prompt.
+- **Plugin-managed template registration for pages**:
+  - custom templates are injected into `Page Attributes > Template`,
+  - custom template rendering is routed through plugin fallback template handling.
 
 ### Improved
 
@@ -68,6 +29,14 @@ All notable changes to this project will be documented in this file.
   - `Draft + Revalidate (frameworks SSR)` (Next.js, Nuxt, others)
 - **French UI harmonization** in Preview settings and related messages.
 - **README simplified and redesigned** for quicker onboarding and clearer feature overview.
+- **Backward compatibility for legacy tab URLs**:
+  - old `?page=vercel-wp&tab=...` links now redirect to the matching dedicated page.
+- **Deploy module internal settings links updated** to the new dedicated Deploy page URL.
+- **Template list rendering**:
+  - normalized template name/file mapping regardless of WordPress return format,
+  - merged theme and plugin templates into a single stable display source.
+- **Template action visibility**:
+  - delete button now appears consistently for plugin templates.
 
 ### Fixed
 
@@ -79,7 +48,18 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Plugin version bumped to **1.1**.
+- **Admin settings navigation migrated to dedicated pages**:
+  - `Deploy` (`admin.php?page=vercel-wp`)
+  - `Preview` (`admin.php?page=vercel-wp-preview`)
+  - `Options` (`admin.php?page=vercel-wp-options`)
+- **Preview settings page streamlined** to keep only preview-related configuration.
+- **Display and Headless toggles moved** to the dedicated `Options` page.
+- **Options templates UI simplified**:
+  - removed page-creation workflow (`title/slug/status`) in favor of true template creation,
+  - removed optional fields from template creation form and auto-generate slug from template name,
+  - preserve user-entered template name casing in UI (e.g. `Contact` stays `Contact`).
+- **Admin page spacing harmonized**:
+  - right-side spacing/padding added on `Deploy`, `Preview`, and `Options` layouts for consistent alignment.
 
 ## [1.0.6] - 2025-01-27
 

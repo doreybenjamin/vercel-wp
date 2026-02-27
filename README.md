@@ -15,15 +15,6 @@ Vercel WP gives editors and developers a single place to:
 
 No dashboard hopping, no complex manual flow.
 
-## Latest Updates (1.1.2)
-
-- New **Options** page workflow to create plugin-managed page templates.
-- Template names are preserved as entered (case-sensitive display, e.g. `Contact`).
-- Template filenames now use a simpler format: `template-<slug>.php`.
-- Template list now includes delete action with confirmation.
-- Template list rendering improved to avoid duplicate/inconsistent rows.
-- Admin layout spacing harmonized across **Deploy**, **Preview**, and **Options** pages.
-
 ## Core Features
 
 | Area | What you get |
