@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-03-03
+## [1.1.1] - 2026-03-03
 
 ### Added
 
@@ -34,6 +34,9 @@ All notable changes to this project will be documented in this file.
 - **Framework selector dynamic fields** in Preview settings:
   - mode-specific fields now reliably show/hide when switching framework mode.
 - **Preview button visibility regression in Draft/Revalidate mode** on editor screens.
+- **Preview modal false-negative loading errors** on slower/cold preview targets:
+  - iframe fallback detection timeout increased,
+  - one automatic reload retry is attempted before showing the "Retry / Open in new tab" fallback.
 - **Admin toggle persistence for "Show Menus"**:
   - option now applies reliably on first save.
 - **Header warning regression (`Cannot modify header information`)**:

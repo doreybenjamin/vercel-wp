@@ -22,8 +22,24 @@ jQuery(function ($) {
   var currentUrl = "";
   var latestBasePreviewUrl = "";
   var blockedTimeout = null;
+  var blockedRetryTimeout = null;
+  var blockedRetryCount = 0;
+  var blockedDetectionTimeoutMs = 9000;
+  var blockedAutoRetriesMax = 1;
   var isOpeningPreview = false;
   var classicBaseline = captureClassicSnapshot();
+
+  if (typeof headlessPreview !== "undefined") {
+    var timeoutCandidate = parseInt(headlessPreview.previewLoadTimeout, 10);
+    if (!isNaN(timeoutCandidate) && timeoutCandidate >= 4000) {
+      blockedDetectionTimeoutMs = timeoutCandidate;
+    }
+
+    var retryCandidate = parseInt(headlessPreview.previewAutoRetries, 10);
+    if (!isNaN(retryCandidate) && retryCandidate >= 0 && retryCandidate <= 3) {
+      blockedAutoRetriesMax = retryCandidate;
+    }
+  }
 
   function t(key, fallback) {
     if (
@@ -441,21 +457,68 @@ jQuery(function ($) {
     });
   }
 
+  function triggerAutoRetry() {
+    if (blockedRetryCount >= blockedAutoRetriesMax) {
+      return false;
+    }
+
+    blockedRetryCount += 1;
+    setStatus(
+      "loading",
+      t("retryingPreview", "Chargement plus long que prévu, nouvelle tentative…")
+    );
+    $loading.show();
+    $fallback.hide();
+
+    blockedRetryTimeout = setTimeout(function () {
+      if (!$container.is(":visible")) {
+        return;
+      }
+
+      var retryUrl = $iframe.attr("src") || currentUrl || latestBasePreviewUrl;
+      if (!retryUrl) {
+        return;
+      }
+
+      currentUrl = appendTimestamp(retryUrl);
+      $iframe.attr("src", currentUrl);
+      scheduleBlockedDetection();
+    }, 450);
+
+    return true;
+  }
+
+  function scheduleBlockedDetection() {
+    blockedTimeout = setTimeout(function () {
+      if (!$container.is(":visible") || !$loading.is(":visible")) {
+        return;
+      }
+
+      if (triggerAutoRetry()) {
+        return;
+      }
+
+      $loading.hide();
+      $fallback.show();
+      setStatus("error", t("previewError", "Prévisualisation indisponible"));
+    }, blockedDetectionTimeoutMs);
+  }
+
   function startBlockedDetection() {
     clearBlockedDetection();
-    blockedTimeout = setTimeout(function () {
-      if ($container.is(":visible") && $loading.is(":visible")) {
-        $loading.hide();
-        $fallback.show();
-        setStatus("error", t("previewError", "Prévisualisation indisponible"));
-      }
-    }, 4000);
+    blockedRetryCount = 0;
+    scheduleBlockedDetection();
   }
 
   function clearBlockedDetection() {
     if (blockedTimeout) {
       clearTimeout(blockedTimeout);
       blockedTimeout = null;
+    }
+
+    if (blockedRetryTimeout) {
+      clearTimeout(blockedRetryTimeout);
+      blockedRetryTimeout = null;
     }
   }
 
@@ -791,6 +854,7 @@ jQuery(function ($) {
 
   $iframe.on("load", function () {
     clearBlockedDetection();
+    blockedRetryCount = 0;
     $loading.hide();
     $fallback.hide();
     var updatedAtText = t("previewUpdatedAt", "Prévisualisation mise à jour à");
@@ -799,6 +863,11 @@ jQuery(function ($) {
 
   $iframe.on("error", function () {
     clearBlockedDetection();
+
+    if (triggerAutoRetry()) {
+      return;
+    }
+
     $loading.hide();
     $fallback.show();
     setStatus("error", t("previewError", "Prévisualisation indisponible"));
