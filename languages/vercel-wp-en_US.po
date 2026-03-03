@@ -774,3 +774,730 @@ msgstr "Delete"
 
 msgid "Aucun template personnalisé détecté."
 msgstr "No custom templates detected."
+
+msgid " - Redirigé vers : %s"
+msgstr " - Redirected to: %s"
+
+msgid "%d occurrences remplacées avec succès"
+msgstr "%d occurrences replaced successfully"
+
+msgid "<strong>Action recommandée :</strong> Utilisez l'outil \"Remplacement d'URLs\" ci-dessous pour mettre à jour tous les liens dans votre contenu."
+msgstr "<strong>Recommended action:</strong> Use the \"URL Replacement\" tool below to update existing links in your content."
+
+msgid "Accès rapides"
+msgstr "Quick access"
+
+msgid "Actions disponibles :"
+msgstr "Available actions:"
+
+msgid "Activer l’actualisation automatique de la preview"
+msgstr "Enable automatic preview refresh"
+
+msgid "Afficher \"Menus\" dans la barre latérale admin"
+msgstr "Show \"Menus\" in the admin sidebar"
+
+msgid "Afficher le bouton de preview dans la barre d’administration"
+msgstr "Show preview button in admin bar"
+
+msgid "Afficher le diagnostic ACF"
+msgstr "Show ACF diagnostic"
+
+msgid "Afficher les boutons de preview dans l’éditeur"
+msgstr "Show preview buttons in editor"
+
+msgid "Ajoutez éventuellement votre URL de production pour le mapping"
+msgstr "Optionally add your production URL for mapping"
+
+msgid "Analyse du contenu..."
+msgstr "Analyzing content..."
+
+msgid "Analyse terminée"
+msgstr "Analysis completed"
+
+msgid "Analyse..."
+msgstr "Analyzing..."
+
+msgid "Analyser le contenu"
+msgstr "Analyze Content"
+
+msgid "Ancienne URL :"
+msgstr "Old URL:"
+
+msgid "Ancienne URL : %s"
+msgstr "Old URL: %s"
+
+msgid "Annulation en cours..."
+msgstr "Cancellation in progress..."
+
+msgid "Annulation terminée avec succès !"
+msgstr "Cancellation completed successfully!"
+
+msgid "ANNULER"
+msgstr "ABORT"
+
+msgid "Annuler"
+msgstr "Cancel"
+
+msgid "Après vos modifications, pensez à Déployer le site pour la mise en production."
+msgstr "After your changes, remember to Deploy Site for production."
+
+msgid "Articles :"
+msgstr "Posts:"
+
+msgid "Articles/Pages"
+msgstr "Posts/Pages"
+
+msgid "Assurez-vous d'avoir une sauvegarde avant de continuer."
+msgstr "Make sure you have a backup before continuing."
+
+msgid "Aucun contenu à mettre à jour."
+msgstr "No content to update."
+
+msgid "Aucun élément trouvé dans cette catégorie"
+msgstr "No elements found in this category"
+
+msgid "Aucune mise à jour d'URL de production en attente trouvée"
+msgstr "No pending production URL update found"
+
+msgid "Aucune occurrence trouvée"
+msgstr "No occurrences found"
+
+msgid "Auteur"
+msgstr "Author"
+
+msgid "Bureau"
+msgstr "Desktop"
+
+msgid "Cache des permaliens vidé avec succès"
+msgstr "Permalink cache cleared successfully"
+
+msgid "Cache vidé avec succès"
+msgstr "Cache cleared successfully"
+
+msgid "Cache vidé via l'API Vercel"
+msgstr "Cache cleared via Vercel API"
+
+msgid "Champ"
+msgstr "Field"
+
+msgid "Chargement de la prévisualisation…"
+msgstr "Loading preview..."
+
+msgid "Chargement..."
+msgstr "Loading..."
+
+msgid "Chemin Draft"
+msgstr "Draft path"
+
+msgid "Chemin Revalidate"
+msgstr "Revalidate path"
+
+msgid "Choisissez comment gérer les URLs de preview et l’invalidation du cache."
+msgstr "Choose how preview URLs and cache invalidation are handled."
+
+msgid "Cliquez pour voir vos changements en temps réel"
+msgstr "Click to see your changes in real time"
+
+msgid "Comment utiliser"
+msgstr "How to use"
+
+msgid "Commentaire"
+msgstr "Comment"
+
+msgid "Commentaires"
+msgstr "Comments"
+
+msgid "Commentaires :"
+msgstr "Comments:"
+
+msgid "Configuration Vercel requise"
+msgstr "Required Vercel Configuration"
+
+msgid "Configurez votre preview Vercel (URLs, mode framework et cache)."
+msgstr "Configure your Vercel preview (URLs, framework mode, and cache)."
+
+msgid "Configurez votre URL de preview Vercel"
+msgstr "Configure your Vercel preview URL"
+
+msgid "CONFIRMER"
+msgstr "CONFIRM"
+
+msgid "Confirmer le remplacement"
+msgstr "Confirm Replacement"
+
+msgid "Confirmez-vous le remplacement de ces URLs ? Cette action est irréversible."
+msgstr "Do you confirm replacing these URLs? This action is irreversible."
+
+msgid "Connexion active"
+msgstr "Connection active"
+
+msgid "Connexion inactive"
+msgstr "Connection inactive"
+
+msgid "Connexion réussie !"
+msgstr "Connection successful!"
+
+msgid "Connexion réussie ! (Code HTTP : %d)"
+msgstr "Connection successful! (HTTP code: %d)"
+
+msgid "Contenu"
+msgstr "Content"
+
+msgid "Copier l’URL"
+msgstr "Copy URL"
+
+msgid "Correction des champs ACF..."
+msgstr "Fixing ACF fields..."
+
+msgid "Deployment canceled"
+msgstr "Deployment canceled"
+
+msgid "Dernier rafraîchissement :"
+msgstr "Last refresh:"
+
+msgid "Dernière URL de production :"
+msgstr "Last production URL:"
+
+msgid "Diagnostic ACF - Informations de diagnostic"
+msgstr "ACF Diagnostic - Diagnostic information"
+
+msgid "Diagnostic ACF effacé"
+msgstr "ACF diagnostic cleared"
+
+msgid "Diagnostic avancé"
+msgstr "Advanced diagnostic"
+
+msgid "Diagnostic avancé en cours..."
+msgstr "Running advanced diagnostics..."
+
+msgid "Diagnostic en cours..."
+msgstr "Diagnostic in progress..."
+
+msgid "Diagnostic terminé"
+msgstr "Diagnostics completed"
+
+msgid "Draft + Revalidate (frameworks SSR)"
+msgstr "Draft + Revalidate (SSR frameworks)"
+
+msgid "Durée de mise en cache des URLs de preview (par défaut : 300 secondes / 5 minutes)"
+msgstr "Preview URL cache duration (default: 300 seconds / 5 minutes)"
+
+msgid "Durée du cache"
+msgstr "Cache duration"
+
+msgid "Délai de connexion dépassé. L'URL met trop de temps à répondre."
+msgstr "Connection timeout. The URL is taking too long to respond."
+
+msgid "Désactiver la page des thèmes WordPress (configuration headless)"
+msgstr "Disable WordPress themes page (headless setup)"
+
+msgid "Détails"
+msgstr "Details"
+
+msgid "Détails de l'opération"
+msgstr "Operation details"
+
+msgid "Détails des modifications :"
+msgstr "Modification details:"
+
+msgid "Effacer le diagnostic"
+msgstr "Clear diagnostic"
+
+msgid "Enregistrer les options"
+msgstr "Save options"
+
+msgid "ERREUR :"
+msgstr "ERROR:"
+
+msgid "Erreur de communication avec le serveur"
+msgstr "Communication error with server"
+
+msgid "Erreur de connexion : %s"
+msgstr "Connection error: %s"
+
+msgid "Erreur de sécurité"
+msgstr "Security error"
+
+msgid "Erreur HTTP %d. Vérifiez que l'URL est accessible."
+msgstr "HTTP error %d. Check that the URL is accessible."
+
+msgid "Erreur inconnue"
+msgstr "Unknown error"
+
+msgid "Erreur lors de l'analyse"
+msgstr "Error during analysis"
+
+msgid "Erreur lors de l'annulation"
+msgstr "Error during cancellation"
+
+msgid "Erreur lors du diagnostic"
+msgstr "Error during diagnostics"
+
+msgid "Erreur lors du remplacement"
+msgstr "Error during replacement"
+
+msgid "Erreur lors du test de connexion."
+msgstr "Error during connection test."
+
+msgid "Erreur SSL. Vérifiez que l'URL utilise correctement HTTPS."
+msgstr "SSL error. Check that the URL uses HTTPS correctly."
+
+msgid "Exemples de contenu modifié :"
+msgstr "Examples of modified content:"
+
+msgid "Extrait"
+msgstr "Excerpt"
+
+msgid "Fermer"
+msgstr "Close"
+
+msgid "Finalisation..."
+msgstr "Finalizing..."
+
+msgid "Format d'URL invalide"
+msgstr "Invalid URL format"
+
+msgid "Framework du frontend"
+msgstr "Frontend framework"
+
+msgid "Générer"
+msgstr "Generate"
+
+msgid "Horodatage du cache mis à jour (API Vercel non configurée)"
+msgstr "Cache timestamp updated (Vercel API not configured)"
+
+msgid "Important :"
+msgstr "Important:"
+
+msgid "Impossible de charger l'aperçu"
+msgstr "Unable to load preview"
+
+msgid "Impossible de copier l’URL"
+msgstr "Unable to copy URL"
+
+msgid "Impossible de vider le cache"
+msgstr "Unable to clear cache"
+
+msgid "Informations de diagnostic pour analyser les problèmes de remplacement des champs ACF."
+msgstr "Diagnostic information to analyze ACF field replacement issues."
+
+msgid "Initialisation..."
+msgstr "Initializing..."
+
+msgid "Inspecter un champ ACF"
+msgstr "Inspect ACF Field"
+
+msgid "Insufficient permissions"
+msgstr "Insufficient permissions"
+
+msgid "Invalid API key format. Must be at least 20 characters and contain only valid characters."
+msgstr "Invalid API key format. Must be at least 20 characters and contain only valid characters."
+
+msgid "Invalid project ID format. Must contain only valid characters and be between 5-100 characters."
+msgstr "Invalid project ID format. Must contain only valid characters and be between 5-100 characters."
+
+msgid "Invalid webhook URL. Must be a valid HTTPS URL from Vercel domains."
+msgstr "Invalid webhook URL. Must be a valid HTTPS URL from Vercel domains."
+
+msgid "Jamais"
+msgstr "Never"
+
+msgid "L'aperçu ne peut pas être chargé. Vérifiez votre configuration."
+msgstr "Preview cannot be loaded. Check your configuration."
+
+msgid "L'URL de preview configurée n'est pas une URL HTTPS publique valide"
+msgstr "Configured preview URL is not a valid public HTTPS URL"
+
+msgid "L'URL de preview doit être une URL HTTPS valide."
+msgstr "Preview URL must be a valid HTTPS URL."
+
+msgid "L'URL de production doit être une URL HTTPS publique valide"
+msgstr "Production URL must be a valid public HTTPS URL"
+
+msgid "L'URL de production doit être une URL HTTPS valide."
+msgstr "Production URL must be a valid HTTPS URL."
+
+msgid "L'URL est requise"
+msgstr "URL is required"
+
+msgid "La plupart des configurations utilisent \"slug\" (ou \"path\") pour Draft et \"path\" pour Revalidate."
+msgstr "Most setups use \"slug\" (or \"path\") for Draft and \"path\" for Revalidate."
+
+msgid "Le bouton de preview apparaîtra dans la barre d'administration et l'éditeur"
+msgstr "The preview button will appear in the admin bar and editor"
+
+msgid "Le point d’entrée Draft/Revalidate n’a pas répondu correctement"
+msgstr "Draft/Revalidate endpoint did not respond correctly"
+
+msgid "Le post demandé ne correspond pas à la session"
+msgstr "Requested post does not match the session"
+
+msgid "Le secret est obligatoire en mode Draft + Revalidate. Cliquez sur \"Générer\"."
+msgstr "Secret is required in Draft + Revalidate mode. Click \"Generate\"."
+
+msgid "Le secret est obligatoire en mode Draft + Revalidate. Utilisez le bouton \"Générer\"."
+msgstr "Secret is required in Draft + Revalidate mode. Use the \"Generate\" button."
+
+msgid "Les données de ce plugin sont automatiquement exclues du remplacement pour éviter toute corruption."
+msgstr "This plugin's data is automatically excluded from replacement to prevent any corruption."
+
+msgid "Les URLs doivent être différentes"
+msgstr "URLs must be different"
+
+msgid "Les URLs sont requises"
+msgstr "URLs are required"
+
+msgid "Loading recent deployments..."
+msgstr "Loading recent deployments..."
+
+msgid "L’entrée \"Menus\" est disponible dans la barre latérale admin."
+msgstr "The \"Menus\" item is available in the admin sidebar."
+
+msgid "L’URL Draft doit être une URL HTTPS valide."
+msgstr "Draft URL must be a valid HTTPS URL."
+
+msgid "L’URL Revalidate doit être une URL HTTPS valide."
+msgstr "Revalidate URL must be a valid HTTPS URL."
+
+msgid "Menus"
+msgstr "Menus"
+
+msgid "Menus s’affiche dans la barre latérale si activé ci-dessus. Le bouton ci-dessous ouvre functions.php."
+msgstr "Menus appears in the sidebar when enabled above. The button below opens functions.php."
+
+msgid "Modification de"
+msgstr "Modification of"
+
+msgid "Métadonnées"
+msgstr "Metadata"
+
+msgid "Métadonnées :"
+msgstr "Metadata:"
+
+msgid "Nom"
+msgstr "Name"
+
+msgid "Nombre total d'éléments à modifier :"
+msgstr "Total number of items to modify:"
+
+msgid "Noms des paramètres Draft/Revalidate"
+msgstr "Draft/Revalidate parameter names"
+
+msgid "Non configurée (utilise ?p=)"
+msgstr "Not configured (uses ?p=)"
+
+msgid "Nouvel onglet"
+msgstr "New tab"
+
+msgid "Nouvelle URL :"
+msgstr "New URL:"
+
+msgid "Nouvelle URL : %s"
+msgstr "New URL: %s"
+
+msgid "Obligatoire en mode Draft + Revalidate. Définissez cette même valeur dans les variables d’environnement de votre frontend."
+msgstr "Required in Draft + Revalidate mode. Set this same value in your frontend environment variables."
+
+msgid "Occurrences trouvées :"
+msgstr "Occurrences found:"
+
+msgid "Options :"
+msgstr "Options:"
+
+msgid "Options d’affichage"
+msgstr "Display options"
+
+msgid "Options enregistrées avec succès !"
+msgstr "Options saved successfully!"
+
+msgid "Options globales"
+msgstr "Global options"
+
+msgid "Options headless"
+msgstr "Headless options"
+
+msgid "Ouvrir dans un nouvel onglet"
+msgstr "Open in new tab"
+
+msgid "Ouvrir functions.php"
+msgstr "Open functions.php"
+
+msgid "Ouvrir la prévisualisation"
+msgstr "Open preview"
+
+msgid "Ouvrir Menus"
+msgstr "Open Menus"
+
+msgid "Paramètre secret"
+msgstr "Secret parameter"
+
+msgid "Paramètres d’affichage admin et comportements headless WordPress."
+msgstr "Admin display settings and headless WordPress behaviors."
+
+msgid "Permission refusée"
+msgstr "Permission denied"
+
+msgid "Personnalisation"
+msgstr "Customizer"
+
+msgid "Point d’entrée appelé au clic sur \"Vider le cache\" pour déclencher la revalidation frontend."
+msgstr "Endpoint called when clicking \"Clear cache\" to trigger frontend revalidation."
+
+msgid "Point d’entrée de preview non configuré"
+msgstr "Preview endpoint not configured"
+
+msgid "Point d’entrée qui active le mode draft puis redirige vers l’URL/chemin demandé. Le plugin ajoute aussi p/preview_id/preview_nonce pour un comportement proche du prévisualiser WordPress."
+msgstr "Endpoint that enables draft mode and then redirects to the requested URL/path. The plugin also adds p/preview_id/preview_nonce for behavior close to WordPress preview."
+
+msgid "Post introuvable"
+msgstr "Post not found"
+
+msgid "Post invalide ou permissions insuffisantes"
+msgstr "Invalid post or insufficient permissions"
+
+msgid "post_id et field_name sont requis"
+msgstr "post_id and field_name are required"
+
+msgid "Pour que la preview fonctionne, ajoutez cette configuration à votre fichier vercel.json :"
+msgstr "For preview to work, add this configuration to your vercel.json file:"
+
+msgid "Protection :"
+msgstr "Protection:"
+
+msgid "Prévisualisation bloquée"
+msgstr "Preview blocked"
+
+msgid "Prévisualisation indisponible"
+msgstr "Preview unavailable"
+
+msgid "Prévisualisation mise à jour à"
+msgstr "Preview updated at"
+
+msgid "Prévisualisation prête"
+msgstr "Preview ready"
+
+msgid "Prévisualiser"
+msgstr "Preview"
+
+msgid "Prêt pour le remplacement"
+msgstr "Ready for replacement"
+
+msgid "Quand activé, la page Apparence → Thèmes sera masquée et redirigée."
+msgstr "When enabled, the Appearance → Themes page will be hidden and redirected."
+
+msgid "Rafraîchir"
+msgstr "Refresh"
+
+msgid "Redirection vers la page Menus…"
+msgstr "Redirecting to Menus page..."
+
+msgid "Remplacement d'URLs"
+msgstr "URL replacement"
+
+msgid "Remplacement des URLs..."
+msgstr "Replacing URLs..."
+
+msgid "Remplacement en cours..."
+msgstr "Replacement in progress..."
+
+msgid "Remplacement terminé avec succès !"
+msgstr "Replacement completed successfully!"
+
+msgid "Revalidation demandée via le point d’entrée du framework"
+msgstr "Revalidation requested via the framework endpoint"
+
+msgid "Réessayer"
+msgstr "Retry"
+
+msgid "Réglages de preview"
+msgstr "Preview settings"
+
+msgid "Réglages enregistrés"
+msgstr "Settings saved"
+
+msgid "Réglages enregistrés avec succès"
+msgstr "Settings saved successfully"
+
+msgid "Réglages enregistrés avec succès !"
+msgstr "Settings saved successfully!"
+
+msgid "Régénérer"
+msgstr "Regenerate"
+
+msgid "Résultat :"
+msgstr "Result:"
+
+msgid "Résultats de l'analyse :"
+msgstr "Analysis results:"
+
+msgid "RÉSUMÉ DU REMPLACEMENT"
+msgstr "REPLACEMENT SUMMARY"
+
+msgid "secondes"
+msgstr "seconds"
+
+msgid "Secret partagé (ENV)"
+msgstr "Shared secret (ENV)"
+
+msgid "Secret régénéré avec succès."
+msgstr "Secret regenerated successfully."
+
+msgid "Session de preview introuvable ou expirée"
+msgstr "Preview session not found or expired"
+
+msgid "Session de prévisualisation indisponible. Ouverture de l’aperçu standard."
+msgstr "Preview session unavailable. Opening standard preview."
+
+msgid "Si vous avez changé votre URL de production, utilisez cet outil pour remplacer toutes les anciennes URLs dans votre contenu."
+msgstr "If you have changed your production URL, use this tool to replace all old URLs in your content."
+
+msgid "Static (mapping URL de preview)"
+msgstr "Static (preview URL mapping)"
+
+msgid "Statistiques"
+msgstr "Statistics"
+
+msgid "Synchronisation des modifications…"
+msgstr "Syncing changes..."
+
+msgid "Tablette"
+msgstr "Tablet"
+
+msgid "Test de connexion"
+msgstr "Connection test"
+
+msgid "Test de connexion en cours..."
+msgstr "Testing connection..."
+
+msgid "Test en cours..."
+msgstr "Testing..."
+
+msgid "Tester la connexion"
+msgstr "Test Connection"
+
+msgid "Thème"
+msgstr "Theme"
+
+msgid "Token de preview invalide"
+msgstr "Invalid preview token"
+
+msgid "Total :"
+msgstr "Total:"
+
+msgid "Toutes les modifications ont été annulées."
+msgstr "All changes have been reverted."
+
+msgid "Trop de redirections détectées. "
+msgstr "Too many redirects detected. "
+
+msgid "Une erreur est survenue lors de la prévisualisation des URLs"
+msgstr "An error occurred while previewing URLs"
+
+msgid "Une erreur est survenue lors du remplacement des URLs"
+msgstr "An error occurred while replacing URLs"
+
+msgid "URL copiée dans le presse-papiers"
+msgstr "URL copied to clipboard"
+
+msgid "URL de preview manquante"
+msgstr "Preview URL missing"
+
+msgid "URL de preview Vercel"
+msgstr "Vercel preview URL"
+
+msgid "URL de production"
+msgstr "Production URL"
+
+msgid "URL de production de votre site pour le mapping des chemins"
+msgstr "Production URL of your site for path mapping"
+
+msgid "URL de production mise à jour avec succès"
+msgstr "Production URL updated successfully"
+
+msgid "URL de production modifiée !"
+msgstr "Production URL changed!"
+
+msgid "URL de production modifiée. Utilisez l’outil \"Remplacement d’URLs\" ci-dessous pour mettre à jour les liens existants."
+msgstr "Production URL changed. Use the \"URL Replacement\" tool below to update existing links."
+
+msgid "URL de Revalidate"
+msgstr "Revalidate URL"
+
+msgid "URL de votre site en mode preview sur Vercel (ex. : https://votre-site-git-branche.vercel.app)"
+msgstr "Your site URL in preview mode on Vercel (e.g.: https://your-site-git-branch.vercel.app)"
+
+msgid "URL inaccessible"
+msgstr "URL not accessible"
+
+msgid "URL invalide. Utilisez uniquement une URL HTTPS publique."
+msgstr "Invalid URL. Use only a public HTTPS URL."
+
+msgid "URL mode Draft"
+msgstr "Draft mode URL"
+
+msgid "URL trouvée"
+msgstr "URL found"
+
+msgid "Valeur"
+msgstr "Value"
+
+msgid "Valeur masquée pour sécurité. Cliquez sur \"Éditer\" pour la remplacer."
+msgstr "Value masked for security. Click \"Edit\" to replace it."
+
+msgid "Vercel Docs"
+msgstr "Vercel docs"
+
+msgid "Veuillez remplir ce champ d’abord."
+msgstr "Please fill in this field first."
+
+msgid "Veuillez saisir les deux URLs"
+msgstr "Please enter both URLs"
+
+msgid "Vidage des caches..."
+msgstr "Clearing caches..."
+
+msgid "Vidage du cache…"
+msgstr "Clearing cache..."
+
+msgid "Vider le cache"
+msgstr "Clear cache"
+
+msgid "Votre navigateur bloque l'affichage. Cliquez ci-dessous pour ouvrir dans un nouvel onglet."
+msgstr "Your browser blocks the display. Click below to open in a new tab."
+
+msgid "Vérifiez que l'URL est correcte et accessible."
+msgstr "Check that the URL is correct and accessible."
+
+msgid "Webhook URL"
+msgstr "Webhook URL"
+
+msgid "Webhook URL is invalid. Please update plugin settings."
+msgstr "Webhook URL is invalid. Please update plugin settings."
+
+msgid "WordPress"
+msgstr "WordPress"
+
+msgid "Échec de l'analyse"
+msgstr "Analysis failed"
+
+msgid "Échec de l'enregistrement des réglages"
+msgstr "Failed to save settings"
+
+msgid "Échec de la mise à jour de l'URL de production"
+msgstr "Failed to update production URL"
+
+msgid "Échec du remplacement"
+msgstr "Replacement failed"
+
+msgid "Éditer"
+msgstr "Edit"
+
+msgid "éléments"
+msgstr "elements"
+
+msgid "éléments modifiés avec succès"
+msgstr "elements modified successfully"
+
+msgid "Éléments qui seront modifiés :"
+msgstr "Elements that will be modified:"
+

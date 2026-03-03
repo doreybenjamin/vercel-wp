@@ -88,7 +88,7 @@ class VercelWP_Preview_Manager {
     }
     
     public function init() {
-        load_plugin_textdomain('vercel-wp', false, dirname(plugin_basename(__FILE__)) . '/languages');
+        vercel_wp_load_textdomain();
         
         // Update existing settings to include new options
         $this->update_existing_settings();
@@ -670,9 +670,14 @@ class VercelWP_Preview_Manager {
         echo '</div>';
         echo '</div>';
         
-        // Load external CSS and JS files
-        wp_enqueue_style('headless-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), VERCEL_WP_VERSION);
-        wp_enqueue_script('headless-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), VERCEL_WP_VERSION, true);
+        // Load external CSS and JS files (filemtime-based version to avoid stale browser cache).
+        $interface_css_path = VERCEL_WP_PLUGIN_DIR . 'assets/css/preview-interface.css';
+        $interface_js_path = VERCEL_WP_PLUGIN_DIR . 'assets/js/preview-interface.js';
+        $interface_css_ver = file_exists($interface_css_path) ? filemtime($interface_css_path) : VERCEL_WP_VERSION;
+        $interface_js_ver = file_exists($interface_js_path) ? filemtime($interface_js_path) : VERCEL_WP_VERSION;
+
+        wp_enqueue_style('headless-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), $interface_css_ver);
+        wp_enqueue_script('headless-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), $interface_js_ver, true);
         
         echo '</div>';
     }
@@ -1502,38 +1507,38 @@ class VercelWP_Preview_Manager {
             wp_send_json_error(array('debug_info' => __('URL invalide. Utilisez uniquement une URL HTTPS publique.', 'vercel-wp')));
         }
         
-        $debug_info = "=== DIAGNOSTIC AVANCÉ ===\n";
-        $debug_info .= "URL testée : " . $vercel_url . "\n\n";
+        $debug_info = "=== ADVANCED DIAGNOSTIC ===\n";
+        $debug_info .= "Tested URL: " . $vercel_url . "\n\n";
         
-        // Test 1: Requête HEAD simple
-        $debug_info .= "1. Test HEAD (sans redirection) :\n";
+        // Test 1: Simple HEAD request
+        $debug_info .= "1. HEAD test (without redirects):\n";
         $response = wp_safe_remote_head($vercel_url, array(
             'timeout' => 10,
             'redirection' => 0
         ));
         
         if (is_wp_error($response)) {
-            $debug_info .= "   ❌ Erreur : " . $response->get_error_message() . "\n";
+            $debug_info .= "   ❌ Error: " . $response->get_error_message() . "\n";
         } else {
             $status = wp_remote_retrieve_response_code($response);
             $location = wp_remote_retrieve_header($response, 'location');
-            $debug_info .= "   ✅ Statut : " . $status . "\n";
+            $debug_info .= "   ✅ Status: " . $status . "\n";
             if ($location) {
-                $debug_info .= "   🔄 Redirection vers : " . $location . "\n";
+                $debug_info .= "   🔄 Redirect to: " . $location . "\n";
             }
         }
         
-        // Test 2: Suivi manuel des redirections
-        $debug_info .= "\n2. Suivi des redirections :\n";
+        // Test 2: Manual redirect tracking
+        $debug_info .= "\n2. Redirect tracking:\n";
         $current_url = $vercel_url;
         $redirects = array();
         $max_redirects = 5;
         
         for ($i = 0; $i < $max_redirects; $i++) {
-            $debug_info .= "   Étape " . ($i + 1) . " : " . $current_url . "\n";
+            $debug_info .= "   Step " . ($i + 1) . ": " . $current_url . "\n";
             
             if (!$this->is_safe_remote_url($current_url)) {
-                $debug_info .= "   ❌ Cible de redirection non sécurisée bloquée\n";
+                $debug_info .= "   ❌ Unsafe redirect target blocked\n";
                 break;
             }
 
@@ -1543,69 +1548,69 @@ class VercelWP_Preview_Manager {
             ));
             
             if (is_wp_error($response)) {
-                $debug_info .= "   ❌ Erreur : " . $response->get_error_message() . "\n";
+                $debug_info .= "   ❌ Error: " . $response->get_error_message() . "\n";
                 break;
             }
             
             $status_code = wp_remote_retrieve_response_code($response);
             $location = wp_remote_retrieve_header($response, 'location');
             
-            $debug_info .= "   Statut : " . $status_code . "\n";
+            $debug_info .= "   Status: " . $status_code . "\n";
             
             if ($status_code >= 300 && $status_code < 400 && $location) {
-                $debug_info .= "   🔄 Redirection vers : " . $location . "\n";
+                $debug_info .= "   🔄 Redirect to: " . $location . "\n";
                 if (strpos($location, '//') === 0) {
                     $location = 'https:' . $location;
                 } elseif (strpos($location, '/') === 0) {
                     $parsed_current = wp_parse_url($current_url);
                     if (empty($parsed_current['scheme']) || empty($parsed_current['host'])) {
-                        $debug_info .= "   ❌ Échec de l'analyse de la redirection\n";
+                        $debug_info .= "   ❌ Failed to parse redirect\n";
                         break;
                     }
                     $location = $parsed_current['scheme'] . '://' . $parsed_current['host'] . $location;
                 }
                 if (!$this->is_safe_remote_url($location)) {
-                    $debug_info .= "   ❌ Redirection bloquée (cible privée/non HTTPS)\n";
+                    $debug_info .= "   ❌ Redirect blocked (private target/non-HTTPS)\n";
                     break;
                 }
                 $current_url = $location;
                 $redirects[] = $current_url;
             } else {
-                $debug_info .= "   ✅ Fin de la chaîne de redirections\n";
+                $debug_info .= "   ✅ End of redirect chain\n";
                 break;
             }
         }
         
         if (count($redirects) >= $max_redirects) {
-            $debug_info .= "\n⚠️  PROBLÈME DÉTECTÉ : trop de redirections !\n";
-            $debug_info .= "Chaîne complète :\n";
+            $debug_info .= "\n⚠️  ISSUE DETECTED: too many redirects!\n";
+            $debug_info .= "Full chain:\n";
             $debug_info .= $vercel_url . "\n";
             foreach ($redirects as $redirect) {
                 $debug_info .= "→ " . $redirect . "\n";
             }
         }
         
-        // Test 3: Vérification DNS
-        $debug_info .= "\n3. Vérification DNS :\n";
+        // Test 3: DNS check
+        $debug_info .= "\n3. DNS check:\n";
         $parsed_url = parse_url($vercel_url);
         $host = $parsed_url['host'];
-        $debug_info .= "   Hôte : " . $host . "\n";
+        $debug_info .= "   Host: " . $host . "\n";
         
         $ip = gethostbyname($host);
         if ($ip === $host) {
-            $debug_info .= "   ❌ Échec de la résolution DNS\n";
+            $debug_info .= "   ❌ DNS resolution failed\n";
         } else {
-            $debug_info .= "   ✅ IP résolue : " . $ip . "\n";
+            $debug_info .= "   ✅ Resolved IP: " . $ip . "\n";
         }
         
-        // Test 4: Test de connectivité
-        $debug_info .= "\n4. Test de connectivité :\n";
+        // Test 4: Connectivity test
+        $debug_info .= "\n4. Connectivity test:\n";
         $socket = @fsockopen($host, 443, $errno, $errstr, 5);
         if ($socket) {
-            $debug_info .= "   ✅ Port 443 (HTTPS) accessible\n";
+            $debug_info .= "   ✅ Port 443 (HTTPS) reachable\n";
             fclose($socket);
         } else {
-            $debug_info .= "   ❌ Port 443 inaccessible : " . $errstr . "\n";
+            $debug_info .= "   ❌ Port 443 unreachable: " . $errstr . "\n";
         }
         
         $debug_info .= "\n=== FIN DU DIAGNOSTIC ===";

@@ -1426,31 +1426,31 @@ jQuery(document).ready(function($) {
         var newUrl = $(this).data('new-url');
         var result = $('#url-replacement-result');
         
-        $(this).prop('disabled', true).html('<span class="dashicons dashicons-update" style="font-size: 12px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: middle; animation: spin 1s linear infinite;"></span><span style="line-height: 1; vertical-align: middle;">EXÉCUTION EN COURS...</span>');
+        $(this).prop('disabled', true).html('<span class="dashicons dashicons-update" style="font-size: 12px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: middle; animation: spin 1s linear infinite;"></span><span style="line-height: 1; vertical-align: middle;">RUNNING...</span>');
         
         // Show progress indicator
         var progressHtml = '<div style="background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 15px; border-radius: 4px; margin: 10px 0;">';
         progressHtml += '<div style="display: flex; align-items: center; margin-bottom: 10px;">';
         progressHtml += '<div class="dashicons dashicons-update" style="margin-right: 8px; font-size: 16px; animation: spin 1s linear infinite;"></div>';
-        progressHtml += '<strong>Remplacement en cours...</strong>';
+        progressHtml += '<strong>Replacement in progress...</strong>';
         progressHtml += '</div>';
         progressHtml += '<div style="background: #fff; border: 1px solid #bee5eb; border-radius: 3px; height: 20px; overflow: hidden;">';
         progressHtml += '<div id="progress-bar" style="background: linear-gradient(90deg, #0073aa 0%, #005a87 100%); height: 100%; width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;"></div>';
         progressHtml += '</div>';
-        progressHtml += '<div id="progress-text" style="margin-top: 8px; font-size: 12px; color: #0c5460;">Initialisation...</div>';
+        progressHtml += '<div id="progress-text" style="margin-top: 8px; font-size: 12px; color: #0c5460;">Initializing...</div>';
         progressHtml += '</div>';
         
         result.removeClass('success error').addClass('loading').html(progressHtml).show();
         
         // Simulate progress updates (faster for better UX)
         var progressSteps = [
-            { percent: 15, text: 'Analyse du contenu...' },
-            { percent: 30, text: 'Traitement des posts...' },
-            { percent: 45, text: 'Mise à jour des métadonnées...' },
-            { percent: 60, text: 'Modification des options...' },
-            { percent: 75, text: 'Mise à jour des widgets...' },
-            { percent: 90, text: 'Finalisation...' },
-            { percent: 100, text: 'Terminé !' }
+            { percent: 15, text: 'Analyzing content...' },
+            { percent: 30, text: 'Processing posts...' },
+            { percent: 45, text: 'Updating metadata...' },
+            { percent: 60, text: 'Updating options...' },
+            { percent: 75, text: 'Updating widgets...' },
+            { percent: 90, text: 'Finalizing...' },
+            { percent: 100, text: 'Done!' }
         ];
         
         var currentStep = 0;
@@ -1485,7 +1485,7 @@ jQuery(document).ready(function($) {
                     
                     if (response.data && response.data.count > 0) {
                         message += '<div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 10px; border-radius: 4px; margin: 10px 0;">';
-                        message += '<strong>📊 Résultat:</strong> ' + response.data.count + ' éléments modifiés avec succès';
+                        message += '<strong>📊 Result:</strong> ' + response.data.count + ' items updated successfully';
                         message += '</div>';
                     }
                     
@@ -1495,11 +1495,11 @@ jQuery(document).ready(function($) {
                     
                     // Add reverse button
                     message += '<div style="background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 12px; border-radius: 4px; margin: 10px 0; text-align: center;">';
-                    message += '<strong>🔄 Revenir en arrière</strong><br>';
-                    message += '<small style="display: block; margin: 8px 0;">Vous pouvez annuler cette opération en inversant les URLs</small>';
+                    message += '<strong>🔄 Roll back</strong><br>';
+                    message += '<small style="display: block; margin: 8px 0;">You can undo this operation by reversing the URLs</small>';
                     message += '<button type="button" id="reverse-urls" style="background: #f39c12; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 8px;">';
                     message += '<span class="dashicons dashicons-undo" style="margin-right: 6px; font-size: 14px;"></span>';
-                    message += 'REVENIR EN ARRIÈRE';
+                    message += 'ROLL BACK';
                     message += '</button>';
                     message += '</div>';
                     
@@ -1553,7 +1553,7 @@ jQuery(document).ready(function($) {
                 result.removeClass('loading success').addClass('error').html('❌ <?php echo esc_js(__('Erreur de communication avec le serveur', 'vercel-wp')); ?>').show();
             },
             complete: function() {
-                $('#final-execute').prop('disabled', false).html('<span class="dashicons dashicons-warning" style="font-size: 12px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: middle;"></span><span style="line-height: 1; vertical-align: middle;">OUI, EXÉCUTER</span>');
+                $('#final-execute').prop('disabled', false).html('<span class="dashicons dashicons-warning" style="font-size: 12px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: middle;"></span><span style="line-height: 1; vertical-align: middle;">YES, RUN</span>');
             }
         });
     });
@@ -1565,7 +1565,7 @@ jQuery(document).ready(function($) {
         var newUrl = result.data('new-url');
         
         if (!oldUrl || !newUrl) {
-            alert('❌ Erreur: Impossible de récupérer les URLs pour l\'annulation.');
+            alert('❌ Error: Unable to retrieve URLs for cancellation.');
             return;
         }
         
@@ -1573,7 +1573,7 @@ jQuery(document).ready(function($) {
         
         // Disable button and show loading with better visual feedback
         var button = $(this);
-        button.prop('disabled', true).html('<span class="dashicons dashicons-update" style="margin-right: 6px; font-size: 14px; animation: spin 1s linear infinite;"></span>ANNULATION EN COURS...');
+        button.prop('disabled', true).html('<span class="dashicons dashicons-update" style="margin-right: 6px; font-size: 14px; animation: spin 1s linear infinite;"></span>CANCELLING...');
         
         // Add CSS for spin animation if not already present
         if (!$('#spin-animation').length) {
@@ -1590,11 +1590,11 @@ jQuery(document).ready(function($) {
                 nonce: '<?php echo wp_create_nonce('vercel_wp_preview_nonce'); ?>'
             },
             beforeSend: function() {
-                result.html('Annulation en cours...').removeClass('success error').addClass('loading').show();
+                result.html('Cancelling...').removeClass('success error').addClass('loading').show();
             },
                 success: function(response) {
                     if (response.success) {
-                        result.removeClass('loading error').addClass('success').html('✅ <strong>ANNULATION RÉUSSIE:</strong> Les URLs ont été inversées avec succès.').show();
+                        result.removeClass('loading error').addClass('success').html('✅ <strong>CANCELLATION SUCCESSFUL:</strong> URLs were reversed successfully.').show();
                         
                         // Update the production URL field back to the original
                         $('#production_url').val(oldUrl);
@@ -1627,14 +1627,14 @@ jQuery(document).ready(function($) {
                         // Hide the reverse button
                         $('#reverse-urls').hide();
                     } else {
-                        result.removeClass('loading').addClass('error').html('❌ <strong>ERREUR:</strong> ' + (response.data ? response.data.message : 'Erreur lors de l\'annulation')).show();
+                        result.removeClass('loading').addClass('error').html('❌ <strong>ERROR:</strong> ' + (response.data ? response.data.message : 'Error during cancellation')).show();
                     }
                 },
             error: function() {
-                result.removeClass('loading').addClass('error').html('❌ <strong>ERREUR:</strong> Erreur de communication avec le serveur').show();
+                result.removeClass('loading').addClass('error').html('❌ <strong>ERROR:</strong> Communication error with server').show();
             },
             complete: function() {
-                button.prop('disabled', false).html('<span class="dashicons dashicons-undo" style="margin-right: 6px; font-size: 14px;"></span>REVENIR EN ARRIÈRE');
+                button.prop('disabled', false).html('<span class="dashicons dashicons-undo" style="margin-right: 6px; font-size: 14px;"></span>ROLL BACK');
             }
         });
     });
@@ -1708,21 +1708,21 @@ jQuery(document).ready(function($) {
         // Add double confirmation section
         var confirmationHtml = '<div id="double-confirmation" style="margin: 20px 0; padding: 24px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; box-shadow: 0 2px 8px rgba(255, 193, 7, 0.15);">';
         confirmationHtml += '<div style="text-align: center;">';
-        confirmationHtml += '<h3 style="color: #856404; margin: 0 0 20px 0; font-size: 16px; font-weight: 600;">⚠️ CONFIRMATION FINALE</h3>';
+        confirmationHtml += '<h3 style="color: #856404; margin: 0 0 20px 0; font-size: 16px; font-weight: 600;">⚠️ FINAL CONFIRMATION</h3>';
         confirmationHtml += '<div style="background: white; padding: 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #e9ecef;">';
-        confirmationHtml += '<div style="font-weight: 600; margin-bottom: 10px; color: #495057;">Modification de <span style="color: #dc3545; font-size: 18px;">' + preview.total_count + '</span> éléments</div>';
-        confirmationHtml += '<div style="margin-bottom: 8px; font-size: 14px; color: #6c757d;"><strong>Ancienne URL:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">' + oldUrl + '</code></div>';
-        confirmationHtml += '<div style="font-size: 14px; color: #6c757d;"><strong>Nouvelle URL:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">' + newUrl + '</code></div>';
+        confirmationHtml += '<div style="font-weight: 600; margin-bottom: 10px; color: #495057;">Updating <span style="color: #dc3545; font-size: 18px;">' + preview.total_count + '</span> items</div>';
+        confirmationHtml += '<div style="margin-bottom: 8px; font-size: 14px; color: #6c757d;"><strong>Old URL:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">' + oldUrl + '</code></div>';
+        confirmationHtml += '<div style="font-size: 14px; color: #6c757d;"><strong>New URL:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">' + newUrl + '</code></div>';
         confirmationHtml += '</div>';
-        confirmationHtml += '<div style="color: #856404; font-weight: 500; margin-bottom: 20px; font-size: 14px;">Êtes-vous ABSOLUMENT SÛR de vouloir continuer ?</div>';
+        confirmationHtml += '<div style="color: #856404; font-weight: 500; margin-bottom: 20px; font-size: 14px;">Are you ABSOLUTELY SURE you want to continue?</div>';
         confirmationHtml += '<div style="background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; text-align: center;">';
         confirmationHtml += '<span class="dashicons dashicons-undo" style="margin-right: 6px; font-size: 14px; vertical-align: middle;"></span>';
-        confirmationHtml += '<strong>Rassurez-vous :</strong> Vous pourrez revenir en arrière à tout moment après l\'exécution grâce au bouton "Revenir en arrière" qui apparaîtra.';
+        confirmationHtml += '<strong>Good news:</strong> You can roll back at any time after execution using the "Roll back" button.';
         confirmationHtml += '</div>';
         confirmationHtml += '<div style="display: flex; justify-content: center; align-items: center;">';
         confirmationHtml += '<button type="button" id="final-execute" class="button button-primary" style="padding: 6px 12px; font-size: 12px; font-weight: 600; background: #dc3545; border-color: #dc3545; height: 32px; min-width: 120px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; vertical-align: middle;">';
         confirmationHtml += '<span class="dashicons dashicons-warning" style="font-size: 12px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: middle;"></span>';
-        confirmationHtml += '<span style="line-height: 1; vertical-align: middle;">OUI, EXÉCUTER</span>';
+        confirmationHtml += '<span style="line-height: 1; vertical-align: middle;">YES, RUN</span>';
         confirmationHtml += '</button>';
         confirmationHtml += '</div>';
         confirmationHtml += '</div>';
@@ -1956,11 +1956,11 @@ jQuery(document).ready(function($) {
                     
                     // Add reverse button
                     message += '<div style="background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 12px; border-radius: 4px; margin: 10px 0; text-align: center;">';
-                    message += '<strong>🔄 Revenir en arrière</strong><br>';
-                    message += '<small style="display: block; margin: 8px 0;">Vous pouvez annuler cette opération en inversant les URLs</small>';
+                    message += '<strong>🔄 Roll back</strong><br>';
+                    message += '<small style="display: block; margin: 8px 0;">You can undo this operation by reversing the URLs</small>';
                     message += '<button type="button" id="reverse-urls" style="background: #f39c12; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 8px;">';
                     message += '<span class="dashicons dashicons-undo" style="margin-right: 6px; font-size: 14px;"></span>';
-                    message += 'REVENIR EN ARRIÈRE';
+                    message += 'ROLL BACK';
                     message += '</button>';
                     message += '</div>';
                     

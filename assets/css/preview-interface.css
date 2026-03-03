@@ -342,14 +342,15 @@
 
 .headless-preview-controls button[data-tooltip] {
   position: relative !important;
+  overflow: visible !important;
 }
 
 .headless-preview-controls button[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 8px);
-  transform: translateX(-50%) translateY(2px);
+  top: calc(100% + 8px);
+  transform: translateX(-50%) translateY(-2px);
   background: rgba(17, 24, 39, 0.95);
   color: #fff;
   font-size: 11px;
@@ -368,11 +369,11 @@
   content: "";
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 2px);
+  top: calc(100% + 2px);
   transform: translateX(-50%);
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 6px solid rgba(17, 24, 39, 0.95);
+  border-bottom: 6px solid rgba(17, 24, 39, 0.95);
   opacity: 0;
   pointer-events: none;
   z-index: 29;
@@ -389,6 +390,10 @@
 .headless-preview-controls button[data-tooltip]:hover::after,
 .headless-preview-controls button[data-tooltip]:focus::after {
   transform: translateX(-50%) translateY(0);
+}
+
+.headless-preview-controls {
+  overflow: visible !important;
 }
 
 /* Special style for close button - more specific selector */

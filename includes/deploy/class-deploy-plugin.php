@@ -89,7 +89,7 @@ class VercelWP_Deploy_Plugin {
      * Load plugin textdomain
      */
     public function load_textdomain() {
-        load_plugin_textdomain('vercel-wp', false, dirname(plugin_basename(VERCEL_WP_PLUGIN_FILE)) . '/languages');
+        vercel_wp_load_textdomain();
     }
     
     // from wp-webhook-vercel-deploy
@@ -111,4 +111,3 @@ class VercelWP_Deploy_Plugin {
 
 // Note: Deploy module initialization is now handled in vercel-wp.php
 // The plugin will be initialized via plugins_loaded hook
-

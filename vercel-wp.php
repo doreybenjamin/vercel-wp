@@ -38,6 +38,35 @@ define('VERCEL_WP_PLUGIN_FILE', __FILE__);
 define('VERCEL_WP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('VERCEL_WP_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+if (!function_exists('vercel_wp_load_textdomain')) {
+    /**
+     * Load plugin translations with an English fallback for en_* locales.
+     */
+    function vercel_wp_load_textdomain() {
+        $domain = 'vercel-wp';
+        $plugin_rel_path = dirname(plugin_basename(VERCEL_WP_PLUGIN_FILE)) . '/languages';
+        $loaded = load_plugin_textdomain($domain, false, $plugin_rel_path);
+
+        $locale = function_exists('determine_locale') ? determine_locale() : get_locale();
+        $locale = apply_filters('plugin_locale', $locale, $domain);
+
+        if (!$loaded) {
+            $mofile = VERCEL_WP_PLUGIN_DIR . 'languages/' . $domain . '-' . $locale . '.mo';
+            if (file_exists($mofile)) {
+                $loaded = load_textdomain($domain, $mofile);
+            }
+        }
+
+        // English fallback when WordPress locale is en_GB, en_AU, etc.
+        if (!$loaded && ($locale === 'en' || strpos($locale, 'en_') === 0)) {
+            $fallback_mofile = VERCEL_WP_PLUGIN_DIR . 'languages/' . $domain . '-en_US.mo';
+            if (file_exists($fallback_mofile)) {
+                load_textdomain($domain, $fallback_mofile);
+            }
+        }
+    }
+}
+
 /**
  * Main plugin class
  */
@@ -109,18 +138,7 @@ class VercelWP {
      * Load plugin textdomain
      */
     public function load_textdomain() {
-        
-        $plugin_rel_path = dirname(plugin_basename(__FILE__)) . '/languages';
-        $loaded = load_plugin_textdomain('vercel-wp', false, $plugin_rel_path);
-        
-        // If the standard method fails, try loading with absolute path
-        if (!$loaded) {
-            $mofile = VERCEL_WP_PLUGIN_DIR . 'languages/vercel-wp-' . get_locale() . '.mo';
-            if (file_exists($mofile)) {
-                load_textdomain('vercel-wp', $mofile);
-            }
-        } else {
-        }
+        vercel_wp_load_textdomain();
     }
     
     /**
