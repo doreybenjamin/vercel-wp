@@ -31,9 +31,9 @@ jQuery(document).ready(function ($) {
   });
 
   // Test de connexion
-  $("#test-connection").on("click", function () {
+  $("#test-connection, #test_connection_btn").on("click", function () {
     var button = $(this);
-    var result = $("#connection-result");
+    var result = $("#connection_test_result, #connection-result").first();
 
     button.prop("disabled", true).text(headlessPreview.strings.loading);
     result.hide();
@@ -42,7 +42,7 @@ jQuery(document).ready(function ($) {
       url: headlessPreview.ajaxUrl,
       type: "POST",
       data: {
-        action: "headless_preview_test_connection",
+        action: "vercel_wp_preview_test_connection",
         nonce: headlessPreview.nonce,
         vercel_url: $("#vercel_preview_url").val(),
       },

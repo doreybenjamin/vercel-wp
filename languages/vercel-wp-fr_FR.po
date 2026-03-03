@@ -4,7 +4,7 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Vercel WP 2.0.0\n"
+"Project-Id-Version: Vercel WP 1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/doreybenjamin/vercel-wp/issues\n"
 "POT-Creation-Date: 2024-01-01 12:00+0000\n"
 "PO-Revision-Date: 2024-01-01 12:00+0000\n"
@@ -852,3 +852,63 @@ msgstr "Utilisez l'outil \"Remplacement d'URL\" ci-dessous pour mettre à jour t
 
 msgid "Configure your Vercel deployment and preview settings"
 msgstr "Configurez vos paramètres de déploiement et prévisualisation Vercel"
+
+msgid "Template créé avec succès."
+msgstr "Template créé avec succès."
+
+msgid "Template supprimé avec succès."
+msgstr "Template supprimé avec succès."
+
+msgid "Le nom du template est requis."
+msgstr "Le nom du template est requis."
+
+msgid "Impossible de générer un identifiant valide pour ce template."
+msgstr "Impossible de générer un identifiant valide pour ce template."
+
+msgid "Un template avec cet identifiant existe déjà."
+msgstr "Un template avec cet identifiant existe déjà."
+
+msgid "Erreur de sécurité, merci de réessayer."
+msgstr "Erreur de sécurité, merci de réessayer."
+
+msgid "Créer un template de page"
+msgstr "Créer un template de page"
+
+msgid "Ce template apparaîtra ensuite dans \"Attributs de page > Modèle\" lors de l’édition d’une page."
+msgstr "Ce template apparaîtra ensuite dans \"Attributs de page > Modèle\" lors de l’édition d’une page."
+
+msgid "Nom du template"
+msgstr "Nom du template"
+
+msgid "Créer le template"
+msgstr "Créer le template"
+
+msgid "Liste des templates disponibles"
+msgstr "Liste des templates disponibles"
+
+msgid "Template WordPress par défaut"
+msgstr "Template WordPress par défaut"
+
+msgid "Identifiant fichier"
+msgstr "Identifiant fichier"
+
+msgid "Source"
+msgstr "Source"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Plugin Vercel WP"
+msgstr "Plugin Vercel WP"
+
+msgid "Thème actif"
+msgstr "Thème actif"
+
+msgid "Confirmer la suppression de ce template ?"
+msgstr "Confirmer la suppression de ce template ?"
+
+msgid "Supprimer"
+msgstr "Supprimer"
+
+msgid "Aucun template personnalisé détecté."
+msgstr "Aucun template personnalisé détecté."

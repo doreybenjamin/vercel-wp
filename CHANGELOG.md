@@ -2,6 +2,103 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-03-03
+
+### Added
+
+- **Native WordPress preview flow support for `Draft + Revalidate` mode**:
+  - reuse of WordPress default preview button behavior for compatible SSR stacks,
+  - dedicated native preview script integration for draft session URLs.
+- **Preview session transport for unsaved editor changes**:
+  - temporary preview session token passed to frontend via URL params,
+  - support for Gutenberg and classic editor snapshots (including ACF/meta payload paths).
+- **Clear-cache button runtime feedback**:
+  - loading state with spinner and label while request is in progress,
+  - success/error notifications after response,
+  - minimum visible loading duration to avoid imperceptible instant states.
+
+### Improved
+
+- **French preview wording harmonized** across editor and modal UI:
+  - `Aperçu` replaced with `Prévisualiser` where relevant,
+  - status labels normalized to `Prévisualisation ...`.
+- **Preview modal UX polish**:
+  - cleaner header content and deploy reminder under post title,
+  - control button tooltips and improved icon vertical alignment,
+  - copy URL interaction with immediate visual confirmation state.
+- **Draft/Revalidate setup clarity** in admin settings:
+  - clearer endpoint expectations and shared-secret guidance for frontend integration.
+
+### Fixed
+
+- **Framework selector dynamic fields** in Preview settings:
+  - mode-specific fields now reliably show/hide when switching framework mode.
+- **Preview button visibility regression in Draft/Revalidate mode** on editor screens.
+- **Admin toggle persistence for "Show Menus"**:
+  - option now applies reliably on first save.
+- **Header warning regression (`Cannot modify header information`)**:
+  - safe redirect fallback applied when output is sent by third-party admin notices.
+- **Preview admin JS syntax issue** that could break script execution on editor pages.
+
+## [1.1] - 2026-02-27
+
+### Added
+
+- **New Preview mode: Draft + Revalidate (framework-agnostic)** for SSR/headless frontends.
+- **Generated shared secret** exposed in BO for frontend configuration:
+  - `HEADLESS_PREVIEW_SECRET=<value>`
+- **Secret workflow updated**:
+  - secret is now empty by default,
+  - dedicated button to generate/regenerate a random value,
+  - secret required when `Draft + Revalidate` mode is selected.
+- **Support for configurable secret parameter name** in Draft/Revalidate endpoints.
+- **Custom page template management in Options page**:
+  - create plugin-managed templates directly from `Options`,
+  - template filename format now uses `template-<slug>.php`,
+  - delete action available in template list with confirmation prompt.
+- **Plugin-managed template registration for pages**:
+  - custom templates are injected into `Page Attributes > Template`,
+  - custom template rendering is routed through plugin fallback template handling.
+
+### Improved
+
+- **Preview mode naming clarified**:
+  - `Static (Preview URL mapping)` (Astro, Gatsby, static frontends)
+  - `Draft + Revalidate (frameworks SSR)` (Next.js, Nuxt, others)
+- **French UI harmonization** in Preview settings and related messages.
+- **README simplified and redesigned** for quicker onboarding and clearer feature overview.
+- **Backward compatibility for legacy tab URLs**:
+  - old `?page=vercel-wp&tab=...` links now redirect to the matching dedicated page.
+- **Deploy module internal settings links updated** to the new dedicated Deploy page URL.
+- **Template list rendering**:
+  - normalized template name/file mapping regardless of WordPress return format,
+  - merged theme and plugin templates into a single stable display source.
+- **Template action visibility**:
+  - delete button now appears consistently for plugin templates.
+
+### Fixed
+
+- **Framework mode field visibility** in Preview settings:
+  - switching between `Static` and `Draft + Revalidate` now reliably updates visible fields in the UI.
+- **Headless "Menus" sidebar toggle save flow**:
+  - setting now applies on first save without requiring a manual reload.
+  - added a safe redirect fallback when another plugin has already sent output (avoids `Cannot modify header information` warnings).
+
+### Changed
+
+- **Admin settings navigation migrated to dedicated pages**:
+  - `Deploy` (`admin.php?page=vercel-wp`)
+  - `Preview` (`admin.php?page=vercel-wp-preview`)
+  - `Options` (`admin.php?page=vercel-wp-options`)
+- **Preview settings page streamlined** to keep only preview-related configuration.
+- **Display and Headless toggles moved** to the dedicated `Options` page.
+- **Options templates UI simplified**:
+  - removed page-creation workflow (`title/slug/status`) in favor of true template creation,
+  - removed optional fields from template creation form and auto-generate slug from template name,
+  - preserve user-entered template name casing in UI (e.g. `Contact` stays `Contact`).
+- **Admin page spacing harmonized**:
+  - right-side spacing/padding added on `Deploy`, `Preview`, and `Options` layouts for consistent alignment.
+
 ## [1.0.6] - 2025-01-27
 
 ### Security Enhanced

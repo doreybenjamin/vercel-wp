@@ -30,6 +30,7 @@ class VercelWP_Preview_Manager {
         // Note: admin_menu hook removed - menu handled by admin/settings.php
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
+        add_filter('preview_post_link', array($this, 'filter_native_preview_link'), 20, 2);
         add_action('wp_ajax_vercel_wp_preview_get_url', array($this, 'ajax_get_preview_url'));
         add_action('wp_ajax_vercel_wp_preview_clear_cache', array($this, 'ajax_clear_cache'));
         add_action('wp_ajax_vercel_wp_preview_test_connection', array($this, 'ajax_test_connection'));
@@ -40,11 +41,15 @@ class VercelWP_Preview_Manager {
         add_action('wp_ajax_vercel_wp_preview_preview_urls', array($this, 'ajax_preview_urls'));
         add_action('wp_ajax_vercel_wp_preview_apply_production_url_update', array($this, 'ajax_apply_production_url_update'));
         add_action('wp_ajax_vercel_wp_preview_save_settings', array($this, 'ajax_save_settings'));
+        add_action('wp_ajax_vercel_wp_preview_prepare_session', array($this, 'ajax_prepare_preview_session'));
         add_action('wp_ajax_vercel_wp_preview_get_acf_debug', array($this, 'ajax_get_acf_debug'));
         add_action('wp_ajax_vercel_wp_preview_clear_acf_debug', array($this, 'ajax_clear_acf_debug'));
         add_action('wp_ajax_vercel_wp_preview_inspect_acf_field', array($this, 'ajax_inspect_acf_field'));
         add_action('wp_ajax_vercel_wp_preview_test_permalinks', array($this, 'ajax_test_permalinks'));
         add_action('wp_ajax_vercel_wp_preview_clear_permalink_cache', array($this, 'ajax_clear_permalink_cache'));
+        add_action('rest_api_init', array($this, 'register_preview_rest_routes'));
+        add_filter('theme_page_templates', array($this, 'register_custom_page_templates'), 20, 4);
+        add_filter('template_include', array($this, 'use_custom_page_template'), 20);
         
         
         // Hook to add preview button in editor
@@ -65,9 +70,12 @@ class VercelWP_Preview_Manager {
         // Register admin menu removal hook early (before init)
         // This ensures it runs before WordPress renders the menu
         add_action('admin_menu', array($this, 'remove_themes_menu_item'), 1);
+        add_action('admin_menu', array($this, 'add_headless_menus_shortcut'), 80);
+        add_action('admin_init', array($this, 'ensure_headless_theme_supports'), 0);
         add_action('admin_init', array($this, 'redirect_themes_page'), 1);
         add_action('load-themes.php', array($this, 'block_themes_page_access'));
         add_action('admin_head', array($this, 'hide_appearance_menu_css'));
+        add_action('after_setup_theme', array($this, 'ensure_headless_theme_supports'), 20);
         
         // Admin bar URL fix - add hooks directly in constructor
         add_action('admin_footer', array($this, 'fix_admin_bar_urls_js'), 999);
@@ -84,6 +92,174 @@ class VercelWP_Preview_Manager {
         
         // Update existing settings to include new options
         $this->update_existing_settings();
+    }
+
+    /**
+     * Shared AJAX capability check helper.
+     */
+    private function ensure_ajax_capability($capability) {
+        if (!current_user_can($capability)) {
+            wp_send_json_error(array('message' => __('Permission refusée', 'vercel-wp')));
+        }
+    }
+
+    /**
+     * Return a sanitized POST value.
+     */
+    private function get_post_value($key) {
+        if (!isset($_POST[$key])) {
+            return '';
+        }
+
+        return sanitize_text_field(wp_unslash($_POST[$key]));
+    }
+
+    /**
+     * Validate target URL for remote checks (HTTPS + public host only).
+     */
+    private function is_safe_remote_url($url) {
+        $url = esc_url_raw($url);
+        if (empty($url) || !wp_http_validate_url($url)) {
+            return false;
+        }
+
+        $parts = wp_parse_url($url);
+        if (!$parts || empty($parts['scheme']) || empty($parts['host'])) {
+            return false;
+        }
+
+        if (strtolower($parts['scheme']) !== 'https') {
+            return false;
+        }
+
+        $host = strtolower($parts['host']);
+        if (in_array($host, array('localhost', '127.0.0.1', '::1'), true)) {
+            return false;
+        }
+
+        if (preg_match('/(\.local|\.internal)$/', $host)) {
+            return false;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP) && !$this->is_public_ip($host)) {
+            return false;
+        }
+
+        $resolved_ips = gethostbynamel($host);
+        if ($resolved_ips !== false) {
+            foreach ($resolved_ips as $ip) {
+                if (!$this->is_public_ip($ip)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Return true for non-private/non-reserved IPs.
+     */
+    private function is_public_ip($ip) {
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
+    }
+
+    /**
+     * Return sanitized custom templates registered from plugin options.
+     */
+    private function get_custom_page_templates() {
+        $templates = get_option('vercel_wp_custom_page_templates', array());
+        if (!is_array($templates)) {
+            return array();
+        }
+
+        $normalized = array();
+
+        foreach ($templates as $template_file => $template_data) {
+            $template_file = sanitize_file_name((string) $template_file);
+            if (empty($template_file)) {
+                continue;
+            }
+
+            if (!is_array($template_data)) {
+                $template_data = array();
+            }
+
+            $name = isset($template_data['name']) ? sanitize_text_field($template_data['name']) : '';
+            if ($name === '') {
+                $name = ucfirst(trim(str_replace(array('vercel-wp-template-', 'template-', '.php', '-', '_'), array('', '', '', ' ', ' '), $template_file)));
+            }
+
+            $slug = isset($template_data['slug']) ? sanitize_title($template_data['slug']) : '';
+            if ($slug === '') {
+                $slug = sanitize_title(str_replace(array('vercel-wp-template-', 'template-', '.php'), '', $template_file));
+            }
+
+            $description = isset($template_data['description']) ? sanitize_text_field($template_data['description']) : '';
+
+            $normalized[$template_file] = array(
+                'name' => $name,
+                'slug' => $slug,
+                'description' => $description,
+            );
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Expose plugin templates in the WordPress "Page Attributes > Template" selector.
+     */
+    public function register_custom_page_templates($page_templates, $wp_theme = null, $post = null, $post_type = 'page') {
+        if ($post_type !== 'page') {
+            return $page_templates;
+        }
+
+        $custom_templates = $this->get_custom_page_templates();
+        if (empty($custom_templates)) {
+            return $page_templates;
+        }
+
+        foreach ($custom_templates as $template_file => $template_data) {
+            $page_templates[$template_file] = $template_data['name'];
+        }
+
+        return $page_templates;
+    }
+
+    /**
+     * Route custom template slugs to a plugin renderer.
+     */
+    public function use_custom_page_template($template) {
+        if (!is_singular('page')) {
+            return $template;
+        }
+
+        $page_id = get_queried_object_id();
+        if (empty($page_id)) {
+            return $template;
+        }
+
+        $selected_template = get_page_template_slug($page_id);
+        if (empty($selected_template) || $selected_template === 'default') {
+            return $template;
+        }
+
+        $custom_templates = $this->get_custom_page_templates();
+        if (!isset($custom_templates[$selected_template])) {
+            return $template;
+        }
+
+        $renderer = VERCEL_WP_PLUGIN_DIR . 'includes/preview/template-custom-page.php';
+        if (!file_exists($renderer)) {
+            return $template;
+        }
+
+        return $renderer;
     }
     
     /**
@@ -109,6 +285,11 @@ class VercelWP_Preview_Manager {
         if (defined('DOING_CRON') && DOING_CRON) {
             return;
         }
+
+        // Don't redirect technical endpoints.
+        if (is_feed() || is_trackback() || is_robots() || (function_exists('is_favicon') && is_favicon())) {
+            return;
+        }
         
         // Get settings
         $settings = get_option('vercel_wp_preview_settings', array(
@@ -118,6 +299,7 @@ class VercelWP_Preview_Manager {
         
         $production_url = !empty($settings['production_url']) ? rtrim($settings['production_url'], '/') : '';
         $preview_url = !empty($settings['vercel_preview_url']) ? rtrim($settings['vercel_preview_url'], '/') : '';
+        $framework = $this->get_preview_framework($settings);
         
         // Determine redirect URL
         $redirect_url = '';
@@ -125,7 +307,7 @@ class VercelWP_Preview_Manager {
         if (!empty($production_url)) {
             // Redirect to Production URL if it's set
             $redirect_url = $production_url;
-        } elseif (!empty($preview_url)) {
+        } elseif ($framework !== 'draft_revalidate' && !empty($preview_url)) {
             // Otherwise redirect to Preview URL if it's set
             $redirect_url = $preview_url;
         }
@@ -133,19 +315,25 @@ class VercelWP_Preview_Manager {
         // Only redirect if we have a URL and we're not already on that domain
         if (!empty($redirect_url)) {
             // Get current request URI safely
-            $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
+            $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '/';
             
             // Get current host
-            $current_host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : parse_url(home_url(), PHP_URL_HOST);
-            $redirect_host = parse_url($redirect_url, PHP_URL_HOST);
+            $current_host = isset($_SERVER['HTTP_HOST']) ? wp_unslash($_SERVER['HTTP_HOST']) : parse_url(home_url(), PHP_URL_HOST);
+            $current_host = strtolower(preg_replace('/:\d+$/', '', $current_host));
+            $redirect_host = strtolower((string) parse_url($redirect_url, PHP_URL_HOST));
             
             // Only redirect if we're not already on the target domain
             if ($current_host !== $redirect_host) {
                 // Preserve the path and query string
                 $full_redirect_url = rtrim($redirect_url, '/') . $request_uri;
+                $full_redirect_url = wp_sanitize_redirect($full_redirect_url);
+
+                if (!wp_http_validate_url($full_redirect_url)) {
+                    return;
+                }
                 
                 // Perform redirect with 301 (permanent redirect)
-                wp_redirect($full_redirect_url, 301);
+                wp_redirect($full_redirect_url, 301, 'Vercel-WP');
                 exit;
             }
         }
@@ -186,13 +374,21 @@ class VercelWP_Preview_Manager {
     public function activate() {
         // Create default options
         add_option('vercel_wp_preview_settings', array(
+            'framework_mode' => 'static',
             'vercel_preview_url' => '',
             'production_url' => '',
+            'nextjs_draft_url' => '',
+            'nextjs_revalidate_url' => '',
+            'nextjs_draft_param' => 'slug',
+            'nextjs_revalidate_param' => 'path',
+            'draft_revalidate_secret' => '',
+            'draft_revalidate_secret_param' => 'secret',
             'cache_duration' => 300, // 5 minutes
             'auto_refresh' => true,
             'show_button_admin_bar' => true,
             'show_button_editor' => true,
-            'disable_theme_page' => true
+            'disable_theme_page' => true,
+            'headless_show_menus_menu' => true
         ));
         
         // Define constants based on settings
@@ -207,25 +403,65 @@ class VercelWP_Preview_Manager {
     // This method is no longer used but kept for reference
     
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'vercel-wp') !== false || 'post.php' === $hook || 'post-new.php' === $hook) {
-            wp_enqueue_script('vercel-wp-preview-admin', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-admin.js', array('jquery'), VERCEL_WP_VERSION, true);
+        $is_plugin_page = strpos($hook, 'vercel-wp') !== false;
+        $is_editor_page = ('post.php' === $hook || 'post-new.php' === $hook);
+        $settings = get_option('vercel_wp_preview_settings', array());
+        $use_native_preview_button = $this->use_native_preview_button($settings);
+
+        if ($is_plugin_page) {
             wp_enqueue_style('vercel-wp-preview-admin', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-admin.css', array(), VERCEL_WP_VERSION);
-            
-            wp_localize_script('vercel-wp-preview-admin', 'headlessPreview', array(
+        }
+
+        if ($is_editor_page && !empty($settings['show_button_editor']) && !$use_native_preview_button) {
+            wp_enqueue_style('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), VERCEL_WP_VERSION);
+            wp_enqueue_script('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), VERCEL_WP_VERSION, true);
+
+            wp_localize_script('vercel-wp-preview-interface', 'headlessPreview', array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('vercel_wp_preview_nonce'),
+                'framework' => $this->get_preview_framework($settings),
+                'previewSessionParam' => 'wp_preview_session',
+                'previewSessionEndpointParam' => 'wp_preview_endpoint',
+                'previewSessionPostIdParam' => 'wp_preview_post_id',
+                'autoRefresh' => !empty($settings['auto_refresh']),
+                'autoRafraîchir' => !empty($settings['auto_refresh']),
+                'refreshInterval' => max(5000, intval($settings['cache_duration'] ?? 300) * 1000),
                 'strings' => array(
-                    'loading' => __('Loading...', 'vercel-wp'),
-                    'error' => __('Error loading', 'vercel-wp'),
-                    'clearCache' => __('Clear cache', 'vercel-wp'),
-                    'openPreview' => __('Open preview', 'vercel-wp')
-                )
+                    'syncing' => __('Synchronisation des modifications…', 'vercel-wp'),
+                    'loadingPreview' => __('Chargement de la prévisualisation…', 'vercel-wp'),
+                    'previewUpdatedAt' => __('Prévisualisation mise à jour à', 'vercel-wp'),
+                    'previewReady' => __('Prévisualisation prête', 'vercel-wp'),
+                    'previewError' => __('Prévisualisation indisponible', 'vercel-wp'),
+                    'copyUrl' => __('Copier l’URL', 'vercel-wp'),
+                    'urlCopied' => __('URL copiée dans le presse-papiers', 'vercel-wp'),
+                    'copyFailed' => __('Impossible de copier l’URL', 'vercel-wp'),
+                    'clearingCache' => __('Vidage du cache…', 'vercel-wp'),
+                    'cacheCleared' => __('Cache vidé avec succès', 'vercel-wp'),
+                    'cacheClearFailed' => __('Impossible de vider le cache', 'vercel-wp'),
+                    'previewSessionError' => __('Session de prévisualisation indisponible. Ouverture de l’aperçu standard.', 'vercel-wp'),
+                ),
+            ));
+        }
+
+        if ($is_editor_page && !empty($settings['show_button_editor']) && $use_native_preview_button) {
+            wp_enqueue_script('vercel-wp-preview-native', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-native.js', array('jquery'), VERCEL_WP_VERSION, true);
+
+            wp_localize_script('vercel-wp-preview-native', 'headlessPreviewNative', array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('vercel_wp_preview_nonce'),
+                'previewSessionParam' => 'wp_preview_session',
+                'previewSessionEndpointParam' => 'wp_preview_endpoint',
+                'previewSessionPostIdParam' => 'wp_preview_post_id',
             ));
         }
     }
     
     public function enqueue_frontend_scripts() {
-        if (is_admin_bar_showing()) {
+        $settings = get_option('vercel_wp_preview_settings', array());
+        $show_admin_bar_button = !empty($settings['show_button_admin_bar']);
+        $use_native_preview_button = $this->use_native_preview_button($settings);
+
+        if (is_admin_bar_showing() && $show_admin_bar_button && !$use_native_preview_button && $this->has_preview_target($settings) && current_user_can('edit_posts')) {
             wp_enqueue_script('vercel-wp-preview-frontend', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-frontend.js', array('jquery'), VERCEL_WP_VERSION, true);
             wp_enqueue_style('vercel-wp-preview-frontend', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-frontend.css', array(), VERCEL_WP_VERSION);
             
@@ -244,6 +480,14 @@ class VercelWP_Preview_Manager {
         if (!isset($settings['show_button_admin_bar']) || !$settings['show_button_admin_bar'] || !current_user_can('edit_posts')) {
             return;
         }
+
+        if ($this->use_native_preview_button($settings)) {
+            return;
+        }
+
+        if (!$this->has_preview_target($settings)) {
+            return;
+        }
         
         $current_url = $this->get_current_page_url();
         if (!$current_url) {
@@ -254,13 +498,51 @@ class VercelWP_Preview_Manager {
         
         $wp_admin_bar->add_node(array(
             'id' => 'vercel-wp',
-            'title' => '<span class="ab-icon"></span>' . __('Preview', 'vercel-wp'),
+            'title' => '<span class="ab-icon"></span>' . __('Prévisualiser', 'vercel-wp'),
             'href' => $preview_url,
             'meta' => array(
                 'target' => '_blank',
-                'title' => __('Open preview', 'vercel-wp')
+                'title' => __('Ouvrir la prévisualisation', 'vercel-wp')
             )
         ));
+    }
+
+    /**
+     * Rewrite native WordPress preview button URL to framework Draft endpoint.
+     */
+    public function filter_native_preview_link($preview_link, $post) {
+        if (!$post instanceof WP_Post) {
+            return $preview_link;
+        }
+
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (!$this->use_native_preview_button($settings)) {
+            return $preview_link;
+        }
+
+        if (!$this->has_preview_target($settings)) {
+            return $preview_link;
+        }
+
+        if (empty($settings['nextjs_draft_url'])) {
+            return $preview_link;
+        }
+
+        $wordpress_url = get_permalink($post);
+        if (empty($wordpress_url)) {
+            $wordpress_url = $preview_link;
+        }
+
+        if (empty($wordpress_url)) {
+            return $preview_link;
+        }
+
+        $mapped_preview = $this->get_preview_url($wordpress_url);
+        if (empty($mapped_preview)) {
+            return $preview_link;
+        }
+
+        return $mapped_preview;
     }
     
     
@@ -282,21 +564,29 @@ class VercelWP_Preview_Manager {
         if (!isset($settings['show_button_editor']) || !$settings['show_button_editor'] || !current_user_can('edit_posts')) {
             return;
         }
+
+        if ($this->use_native_preview_button($settings)) {
+            return;
+        }
+
+        if (!$this->has_preview_target($settings)) {
+            return;
+        }
         
         $preview_url = $this->get_preview_url($current_url);
         
         echo '<div class="headless-preview-buttons-container" style="margin-top: 10px; margin-bottom: 15px; background: #fff; border: 1px solid #e1e1e1; border-radius: 4px; padding: 10px; width: 100%;">';
-        echo '<h3 style="margin: 0 0 10px 0; color: #333; font-size: 13px; font-weight: 500;">' . __('Preview', 'vercel-wp') . '</h3>';
+        echo '<h3 style="margin: 0 0 10px 0; color: #333; font-size: 13px; font-weight: 500;">' . __('Prévisualiser', 'vercel-wp') . '</h3>';
         echo '<div class="headless-preview-buttons" style="display: flex; gap: 8px; align-items: center;">';
         
         // Preview button (simple style)
         echo '<button type="button" class="button button-secondary headless-preview-toggle" data-url="' . esc_url($preview_url) . '" style="font-size: 13px; display: flex; align-items: center;">';
-        echo __('Preview', 'vercel-wp');
+        echo __('Prévisualiser', 'vercel-wp');
         echo '</button>';
         
-        // Clear cache button (simple style)
+        // Vider le cache button (simple style)
         echo '<button type="button" class="button button-secondary headless-preview-clear-cache" data-url="' . esc_url($current_url) . '" style="font-size: 13px; display: flex; align-items: center;">';
-        echo '<span class="dashicons dashicons-update" style="font-size: 14px;"></span> ' . __('Clear cache', 'vercel-wp');
+        echo '<span class="dashicons dashicons-update" style="font-size: 14px;"></span> ' . __('Vider le cache', 'vercel-wp');
         echo '</button>';
         
         echo '</div>';
@@ -308,7 +598,10 @@ class VercelWP_Preview_Manager {
         // Simple header
         echo '<div class="headless-preview-header" style="background: #fff; color: #333; padding: 4px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e1e1e1;">';
         echo '<div class="headless-preview-header-left" style="display: flex; align-items: center;">';
+        echo '<div>';
         echo '<h1 style="margin: 0; font-size: 18px; font-weight: 500; color: #333;">' . get_the_title($post->ID) . '</h1>';
+        echo '<p class="headless-preview-deploy-hint" style="margin: 4px 0 0; font-size: 12px; color: #646970;">' . __('Après vos modifications, pensez à Déployer le site pour la mise en production.', 'vercel-wp') . '</p>';
+        echo '</div>';
         echo '</div>';
         
         echo '<div class="headless-preview-header-right" style="display: flex; align-items: center; gap: 10px;">';
@@ -320,13 +613,13 @@ class VercelWP_Preview_Manager {
         
         // Simple action buttons
         echo '<div class="headless-preview-controls" style="display: flex; gap: 5px;">';
-        echo '<button type="button" class="button headless-preview-refresh-iframe" style="padding: 6px 10px; font-size: 12px;" title="' . __('Refresh', 'vercel-wp') . '">';
+        echo '<button type="button" class="button headless-preview-refresh-iframe" style="padding: 6px 10px; font-size: 12px;" title="' . __('Rafraîchir', 'vercel-wp') . '">';
         echo '<span class="dashicons dashicons-update"></span>';
         echo '</button>';
-        echo '<button type="button" class="button headless-preview-open-new-tab" style="padding: 6px 10px; font-size: 12px;" title="' . __('New tab', 'vercel-wp') . '">';
+        echo '<button type="button" class="button headless-preview-open-new-tab" style="padding: 6px 10px; font-size: 12px;" title="' . __('Nouvel onglet', 'vercel-wp') . '">';
         echo '<span class="dashicons dashicons-external"></span>';
         echo '</button>';
-        echo '<button type="button" class="button headless-preview-close" style="padding: 6px 10px; font-size: 12px; background: #dc3545; border-color: #dc3545; color: white;" title="' . __('Close', 'vercel-wp') . '">';
+        echo '<button type="button" class="button headless-preview-close" style="padding: 6px 10px; font-size: 12px; background: #dc3545; border-color: #dc3545; color: white;" title="' . __('Fermer', 'vercel-wp') . '">';
         echo '<span class="dashicons dashicons-no-alt"></span>';
         echo '</button>';
         echo '</div>';
@@ -340,13 +633,13 @@ class VercelWP_Preview_Manager {
         echo '<div class="headless-preview-toolbar" style="background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;">';
         echo '<div class="headless-preview-toolbar-left" style="display: flex; align-items: center; gap: 10px;">';
         echo '<div class="headless-preview-device-selector" style="display: flex; gap: 3px;">';
-        echo '<button type="button" class="device-btn active" data-device="desktop" style="padding: 4px 8px; border: 1px solid #0073aa; background: #0073aa; color: white; border-radius: 3px; cursor: pointer; font-size: 11px;">' . __('Desktop', 'vercel-wp') . '</button>';
-        echo '<button type="button" class="device-btn" data-device="tablet" style="padding: 4px 8px; border: 1px solid #ddd; background: white; color: #666; border-radius: 3px; cursor: pointer; font-size: 11px;">' . __('Tablet', 'vercel-wp') . '</button>';
+        echo '<button type="button" class="device-btn active" data-device="desktop" style="padding: 4px 8px; border: 1px solid #0073aa; background: #0073aa; color: white; border-radius: 3px; cursor: pointer; font-size: 11px;">' . __('Bureau', 'vercel-wp') . '</button>';
+        echo '<button type="button" class="device-btn" data-device="tablet" style="padding: 4px 8px; border: 1px solid #ddd; background: white; color: #666; border-radius: 3px; cursor: pointer; font-size: 11px;">' . __('Tablette', 'vercel-wp') . '</button>';
         echo '<button type="button" class="device-btn" data-device="mobile" style="padding: 4px 8px; border: 1px solid #ddd; background: white; color: #666; border-radius: 3px; cursor: pointer; font-size: 11px;">' . __('Mobile', 'vercel-wp') . '</button>';
         echo '</div>';
         echo '<div class="headless-preview-status-container" style="display: flex; align-items: center; gap: 8px;">';
         echo '<div class="headless-preview-status" style="width: 8px; height: 8px; border-radius: 50%; background: #28a745;"></div>';
-        echo '<span style="font-size: 11px; color: #666;">' . __('Connected', 'vercel-wp') . '</span>';
+        echo '<span class="headless-preview-status-label" style="font-size: 11px; color: #666;">' . __('Prévisualisation prête', 'vercel-wp') . '</span>';
         echo '</div>';
         echo '</div>';
         echo '</div>';
@@ -357,7 +650,7 @@ class VercelWP_Preview_Manager {
         // Simple loading message
         echo '<div class="headless-preview-loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10;">';
         echo '<div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #0073aa; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>';
-        echo '<p style="color: #666; margin: 0; font-size: 14px;">' . __('Loading...', 'vercel-wp') . '</p>';
+        echo '<p style="color: #666; margin: 0; font-size: 14px;">' . __('Chargement...', 'vercel-wp') . '</p>';
         echo '</div>';
         
         // Simple error message
@@ -365,10 +658,10 @@ class VercelWP_Preview_Manager {
         echo '<div style="width: 40px; height: 40px; background: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">';
         echo '<span class="dashicons dashicons-warning" style="color: white; font-size: 18px;"></span>';
         echo '</div>';
-        echo '<h4 style="color: #dc3545; margin: 0 0 10px 0; font-size: 16px;">' . __('Preview blocked', 'vercel-wp') . '</h4>';
-        echo '<p style="color: #666; margin: 0 0 15px 0; font-size: 13px; line-height: 1.4;">' . __('Your browser blocks the display. Click below to open in a new tab.', 'vercel-wp') . '</p>';
+        echo '<h4 style="color: #dc3545; margin: 0 0 10px 0; font-size: 16px;">' . __('Prévisualisation bloquée', 'vercel-wp') . '</h4>';
+        echo '<p style="color: #666; margin: 0 0 15px 0; font-size: 13px; line-height: 1.4;">' . __('Votre navigateur bloque l\'affichage. Cliquez ci-dessous pour ouvrir dans un nouvel onglet.', 'vercel-wp') . '</p>';
         echo '<button type="button" class="button button-primary headless-preview-open-new-tab-fallback" style="padding: 8px 16px; font-size: 13px;">';
-        echo '<span class="dashicons dashicons-external" style="margin-right: 6px;"></span> ' . __('Open in new tab', 'vercel-wp');
+        echo '<span class="dashicons dashicons-external" style="margin-right: 6px;"></span> ' . __('Ouvrir dans un nouvel onglet', 'vercel-wp');
         echo '</button>';
         echo '</div>';
         
@@ -438,25 +731,33 @@ class VercelWP_Preview_Manager {
         if (!isset($settings['show_button_editor']) || !$settings['show_button_editor']) {
             return;
         }
+
+        if ($this->use_native_preview_button($settings)) {
+            return;
+        }
+
+        if (!$this->has_preview_target($settings)) {
+            return;
+        }
         
         $preview_url = $this->get_preview_url($current_url);
         
         // Native WordPress style for Publish section with misc-pub-section classes
         echo '<div class="misc-pub-section headless-preview-section" style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">';
-        echo '<label style="font-weight: 600; color: #23282d; margin-bottom: 8px; display: block;">' . __('Preview', 'vercel-wp') . '</label>';
+        echo '<label style="font-weight: 600; color: #23282d; margin-bottom: 8px; display: block;">' . __('Prévisualiser', 'vercel-wp') . '</label>';
         
         // Button container with WordPress style
         echo '<div class="headless-preview-buttons" style="display: flex; gap: 6px; margin-top: 8px;">';
         
         // Preview button with WordPress style
         echo '<button type="button" class="button button-secondary headless-preview-toggle" data-url="' . esc_url($preview_url) . '" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px;">';
-        echo __('Preview', 'vercel-wp');
+        echo __('Prévisualiser', 'vercel-wp');
         echo '</button>';
         
-        // Clear cache button with WordPress style
+        // Vider le cache button with WordPress style
         echo '<button type="button" class="button button-secondary headless-preview-clear-cache" data-url="' . esc_url($current_url) . '" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px;">';
         echo '<span class="dashicons dashicons-update" style="font-size: 14px; width: 14px; height: 14px;"></span>';
-        echo __('Clear cache', 'vercel-wp');
+        echo __('Vider le cache', 'vercel-wp');
         echo '</button>';
         
         echo '</div>';
@@ -471,6 +772,7 @@ class VercelWP_Preview_Manager {
         // Page title on the left
         echo '<div class="headless-preview-title" style="flex: 1; margin-right: 20px;">';
         echo '<h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1d2327; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">' . get_the_title($post->ID) . '</h1>';
+        echo '<p class="headless-preview-deploy-hint" style="margin: 4px 0 0; font-size: 12px; color: #646970;">' . __('Après vos modifications, pensez à Déployer le site pour la mise en production.', 'vercel-wp') . '</p>';
         echo '</div>';
         
         // URL bar on the right
@@ -480,13 +782,13 @@ class VercelWP_Preview_Manager {
         
         // Action buttons with Sanity style
         echo '<div class="headless-preview-controls" style="display: flex; gap: 6px;">';
-        echo '<button type="button" class="button button-secondary headless-preview-refresh-iframe" style="padding: 8px; font-size: 14px; height: 36px; width: 36px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="' . __('Refresh', 'vercel-wp') . '">';
+        echo '<button type="button" class="button button-secondary headless-preview-refresh-iframe" style="padding: 8px; font-size: 14px; height: 36px; width: 36px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="' . __('Rafraîchir', 'vercel-wp') . '">';
         echo '<span class="dashicons dashicons-update" style="font-size: 16px; font-weight: bold;"></span>';
         echo '</button>';
-        echo '<button type="button" class="button button-secondary headless-preview-open-new-tab" style="padding: 8px; font-size: 14px; height: 36px; width: 36px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="' . __('New tab', 'vercel-wp') . '">';
+        echo '<button type="button" class="button button-secondary headless-preview-open-new-tab" style="padding: 8px; font-size: 14px; height: 36px; width: 36px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="' . __('Nouvel onglet', 'vercel-wp') . '">';
         echo '<span class="dashicons dashicons-external" style="font-size: 16px; font-weight: bold;"></span>';
         echo '</button>';
-        echo '<button type="button" class="button button-secondary headless-preview-close" style="padding: 8px; font-size: 14px; height: 36px; width: 36px; border-radius: 6px; border: 1px solid #dc2626; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="' . __('Close', 'vercel-wp') . '">';
+        echo '<button type="button" class="button button-secondary headless-preview-close" style="padding: 8px; font-size: 14px; height: 36px; width: 36px; border-radius: 6px; border: 1px solid #dc2626; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="' . __('Fermer', 'vercel-wp') . '">';
         echo '<span class="dashicons dashicons-no-alt" style="font-size: 16px; font-weight: bold;"></span>';
         echo '</button>';
         echo '</div>';
@@ -501,15 +803,15 @@ class VercelWP_Preview_Manager {
         
         // Device selector with Sanity style
         echo '<div class="headless-preview-device-selector" style="display: flex; gap: 4px;">';
-        echo '<button type="button" class="device-btn active" data-device="desktop" style="padding: 6px 12px; border: 1px solid #2271b1; background: #2271b1; color: white; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s ease;">' . __('Desktop', 'vercel-wp') . '</button>';
-        echo '<button type="button" class="device-btn" data-device="tablet" style="padding: 6px 12px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s ease;">' . __('Tablet', 'vercel-wp') . '</button>';
+        echo '<button type="button" class="device-btn active" data-device="desktop" style="padding: 6px 12px; border: 1px solid #2271b1; background: #2271b1; color: white; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s ease;">' . __('Bureau', 'vercel-wp') . '</button>';
+        echo '<button type="button" class="device-btn" data-device="tablet" style="padding: 6px 12px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s ease;">' . __('Tablette', 'vercel-wp') . '</button>';
         echo '<button type="button" class="device-btn" data-device="mobile" style="padding: 6px 12px; border: 1px solid #d1d5db; background: white; color: #374151; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s ease;">' . __('Mobile', 'vercel-wp') . '</button>';
         echo '</div>';
         
         // Connection status with Sanity style
         echo '<div class="headless-preview-status-container" style="display: flex; align-items: center; gap: 8px;">';
         echo '<div class="headless-preview-status" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></div>';
-        echo '<span style="font-size: 13px; color: #374151; font-weight: 500;">' . __('Connected', 'vercel-wp') . '</span>';
+        echo '<span class="headless-preview-status-label" style="font-size: 13px; color: #374151; font-weight: 500;">' . __('Prévisualisation prête', 'vercel-wp') . '</span>';
         echo '</div>';
         echo '</div>';
         echo '</div>';
@@ -520,7 +822,7 @@ class VercelWP_Preview_Manager {
         // Loading message with WordPress style
         echo '<div class="headless-preview-loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10;">';
         echo '<div style="width: 32px; height: 32px; border: 3px solid #f0f0f1; border-top: 3px solid #2271b1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>';
-        echo '<p style="color: #1d2327; margin: 0; font-size: 14px; font-weight: 500;">' . __('Loading...', 'vercel-wp') . '</p>';
+        echo '<p style="color: #1d2327; margin: 0; font-size: 14px; font-weight: 500;">' . __('Chargement...', 'vercel-wp') . '</p>';
         echo '</div>';
         
         // Error message with WordPress style
@@ -528,11 +830,11 @@ class VercelWP_Preview_Manager {
         echo '<div style="width: 32px; height: 32px; background: #d63638; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">';
         echo '<span class="dashicons dashicons-warning" style="color: white; font-size: 16px;"></span>';
         echo '</div>';
-        echo '<h3 style="margin: 0 0 8px 0; color: #1d2327; font-size: 16px; font-weight: 600;">' . __('Unable to load preview', 'vercel-wp') . '</h3>';
-        echo '<p style="margin: 0 0 16px 0; color: #646970; font-size: 14px; line-height: 1.4;">' . __('Preview cannot be loaded. Check your configuration.', 'vercel-wp') . '</p>';
+        echo '<h3 style="margin: 0 0 8px 0; color: #1d2327; font-size: 16px; font-weight: 600;">' . __('Impossible de charger l\'aperçu', 'vercel-wp') . '</h3>';
+        echo '<p style="margin: 0 0 16px 0; color: #646970; font-size: 14px; line-height: 1.4;">' . __('L\'aperçu ne peut pas être chargé. Vérifiez votre configuration.', 'vercel-wp') . '</p>';
         echo '<div style="display: flex; gap: 8px; justify-content: center;">';
-        echo '<button type="button" class="button button-primary headless-preview-retry" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 12px;">' . __('Retry', 'vercel-wp') . '</button>';
-        echo '<button type="button" class="button button-secondary headless-preview-open-external" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 12px;">' . __('Open in new tab', 'vercel-wp') . '</button>';
+        echo '<button type="button" class="button button-primary headless-preview-retry" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 12px;">' . __('Réessayer', 'vercel-wp') . '</button>';
+        echo '<button type="button" class="button button-secondary headless-preview-open-external" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 12px;">' . __('Ouvrir dans un nouvel onglet', 'vercel-wp') . '</button>';
         echo '</div>';
         echo '</div>';
         
@@ -548,15 +850,17 @@ class VercelWP_Preview_Manager {
         echo '</style>';
     }
     public function hide_default_preview_button() {
-        $settings = get_option('vercel_wp_preview_settings');
-        
-        if (isset($settings['show_button_editor']) && $settings['show_button_editor']) {
+        global $pagenow;
+        if (!in_array($pagenow, array('post.php', 'post-new.php'), true)) {
+            return;
+        }
+
+        $settings = get_option('vercel_wp_preview_settings', array());
+        $show_custom_editor_button = isset($settings['show_button_editor']) && $settings['show_button_editor'];
+
+        if ($show_custom_editor_button && !$this->use_native_preview_button($settings)) {
             // Hide default WordPress preview button
             echo '<style>#preview-action { display: none !important; }</style>';
-            
-            // Load external CSS and JS files
-            wp_enqueue_style('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), VERCEL_WP_VERSION);
-            wp_enqueue_script('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), VERCEL_WP_VERSION, true);
         }
     }
     
@@ -570,8 +874,12 @@ class VercelWP_Preview_Manager {
     }
     
     private function save_settings() {
-        if (!wp_verify_nonce($_POST['_wpnonce'], 'vercel_wp_preview_settings')) {
-            wp_die(__('Security error', 'vercel-wp'));
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Permission refusée', 'vercel-wp'));
+        }
+
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'vercel_wp_preview_settings')) {
+            wp_die(__('Erreur de sécurité', 'vercel-wp'));
         }
         
         $old_settings = get_option('vercel_wp_preview_settings', array());
@@ -582,10 +890,10 @@ class VercelWP_Preview_Manager {
         
                 // Update only the submitted fields
                 if (isset($_POST['vercel_preview_url'])) {
-                    $settings['vercel_preview_url'] = rtrim(sanitize_url($_POST['vercel_preview_url']), '/');
+                    $settings['vercel_preview_url'] = rtrim(esc_url_raw($this->get_post_value('vercel_preview_url')), '/');
                 }
                 if (isset($_POST['production_url'])) {
-                    $settings['production_url'] = rtrim(sanitize_url($_POST['production_url']), '/');
+                    $settings['production_url'] = rtrim(esc_url_raw($this->get_post_value('production_url')), '/');
                 }
         if (isset($_POST['cache_duration'])) {
             $settings['cache_duration'] = intval($_POST['cache_duration']);
@@ -596,6 +904,7 @@ class VercelWP_Preview_Manager {
         $settings['show_button_admin_bar'] = isset($_POST['show_button_admin_bar']);
         $settings['show_button_editor'] = isset($_POST['show_button_editor']);
         $settings['disable_theme_page'] = isset($_POST['disable_theme_page']);
+        $settings['headless_show_menus_menu'] = isset($_POST['headless_show_menus_menu']);
         
         // Preserve last production URL for comparison
         $settings['last_production_url'] = $old_production_url;
@@ -612,35 +921,189 @@ class VercelWP_Preview_Manager {
             echo __('<strong>Action recommandée :</strong> Utilisez l\'outil "Remplacement d\'URLs" ci-dessous pour mettre à jour tous les liens dans votre contenu.', 'vercel-wp');
             echo '</p></div>';
         } else {
-            echo '<div class="notice notice-success"><p>' . __('Settings saved', 'vercel-wp') . '</p></div>';
+            echo '<div class="notice notice-success"><p>' . __('Réglages enregistrés', 'vercel-wp') . '</p></div>';
         }
     }
     
     public function ajax_get_preview_url() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('edit_posts');
         
-        $url = sanitize_url($_POST['url']);
+        $url = esc_url_raw($this->get_post_value('url'));
+        if (empty($url)) {
+            wp_send_json_error(array('message' => __('L\'URL est requise', 'vercel-wp')));
+        }
         $preview_url = $this->get_preview_url($url);
         
         wp_send_json_success(array('preview_url' => $preview_url));
     }
+
+    /**
+     * Register public REST route used by frontend draft pages to fetch preview session data.
+     */
+    public function register_preview_rest_routes() {
+        register_rest_route('vercel-wp/v1', '/preview-session', array(
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => array($this, 'rest_get_preview_session'),
+            'permission_callback' => '__return_true',
+            'args' => array(
+                'token' => array(
+                    'required' => true,
+                    'type' => 'string',
+                ),
+                'post_id' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                ),
+            ),
+        ));
+    }
+
+    /**
+     * REST callback: return stored preview session payload.
+     */
+    public function rest_get_preview_session($request) {
+        $token = sanitize_text_field((string) $request->get_param('token'));
+        if (empty($token) || !preg_match('/^[A-Za-z0-9]+$/', $token)) {
+            return new WP_Error('vercel_wp_invalid_preview_token', __('Token de preview invalide', 'vercel-wp'), array('status' => 400));
+        }
+
+        $session = get_transient('vercel_wp_preview_session_' . $token);
+        if (!is_array($session)) {
+            return new WP_Error('vercel_wp_preview_session_not_found', __('Session de preview introuvable ou expirée', 'vercel-wp'), array('status' => 404));
+        }
+
+        $requested_post_id = absint($request->get_param('post_id'));
+        if ($requested_post_id > 0 && (!isset($session['postId']) || $requested_post_id !== (int) $session['postId'])) {
+            return new WP_Error('vercel_wp_preview_post_mismatch', __('Le post demandé ne correspond pas à la session', 'vercel-wp'), array('status' => 403));
+        }
+
+        return rest_ensure_response(array(
+            'success' => true,
+            'data' => $session,
+        ));
+    }
+
+    /**
+     * Store a short-lived preview session with current editor snapshot (Gutenberg + ACF form values).
+     */
+    public function ajax_prepare_preview_session() {
+        check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('edit_posts');
+
+        $post_id = absint($this->get_post_value('post_id'));
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
+            wp_send_json_error(array('message' => __('Post invalide ou permissions insuffisantes', 'vercel-wp')));
+        }
+
+        $post = get_post($post_id);
+        if (!$post instanceof WP_Post) {
+            wp_send_json_error(array('message' => __('Post introuvable', 'vercel-wp')));
+        }
+
+        $snapshot_raw = isset($_POST['snapshot']) ? wp_unslash($_POST['snapshot']) : '';
+        $snapshot = array();
+        if (is_string($snapshot_raw) && $snapshot_raw !== '') {
+            $decoded_snapshot = json_decode($snapshot_raw, true);
+            if (is_array($decoded_snapshot)) {
+                $snapshot = $decoded_snapshot;
+            }
+        }
+
+        $form_data_raw = isset($_POST['form_data']) ? wp_unslash($_POST['form_data']) : '';
+        $parsed_form = array();
+        if (is_string($form_data_raw) && $form_data_raw !== '') {
+            parse_str($form_data_raw, $parsed_form);
+        }
+
+        $title = isset($snapshot['title']) ? (string) $snapshot['title'] : '';
+        if ($title === '' && isset($parsed_form['post_title'])) {
+            $title = (string) $parsed_form['post_title'];
+        }
+        if ($title === '') {
+            $title = (string) $post->post_title;
+        }
+
+        $content = isset($snapshot['content']) ? (string) $snapshot['content'] : '';
+        if ($content === '' && isset($parsed_form['content'])) {
+            $content = (string) $parsed_form['content'];
+        }
+        if ($content === '') {
+            $autosave = wp_get_post_autosave($post_id, get_current_user_id());
+            if ($autosave instanceof WP_Post && !empty($autosave->post_content)) {
+                $content = (string) $autosave->post_content;
+            } else {
+                $content = (string) $post->post_content;
+            }
+        }
+
+        $excerpt = isset($snapshot['excerpt']) ? (string) $snapshot['excerpt'] : '';
+        if ($excerpt === '' && isset($parsed_form['excerpt'])) {
+            $excerpt = (string) $parsed_form['excerpt'];
+        }
+        if ($excerpt === '') {
+            $excerpt = (string) $post->post_excerpt;
+        }
+
+        $meta = array();
+        if (isset($snapshot['meta']) && is_array($snapshot['meta'])) {
+            $meta = $snapshot['meta'];
+        }
+
+        $acf = array();
+        if (isset($parsed_form['acf']) && is_array($parsed_form['acf'])) {
+            $acf = $parsed_form['acf'];
+        }
+
+        $token = wp_generate_password(48, false, false);
+        $session_ttl = 20 * MINUTE_IN_SECONDS;
+        $session = array(
+            'postId' => $post_id,
+            'postType' => (string) $post->post_type,
+            'postStatus' => (string) $post->post_status,
+            'title' => $title,
+            'content' => $content,
+            'excerpt' => $excerpt,
+            'meta' => $meta,
+            'acf' => $acf,
+            'updatedAt' => time(),
+            'source' => 'vercel-wp-preview-session',
+        );
+
+        set_transient('vercel_wp_preview_session_' . $token, $session, $session_ttl);
+
+        wp_send_json_success(array(
+            'token' => $token,
+            'post_id' => $post_id,
+            'endpoint' => rest_url('vercel-wp/v1/preview-session'),
+            'expires_in' => $session_ttl,
+        ));
+    }
     
     public function ajax_clear_cache() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('edit_posts');
         
-        $url = sanitize_url($_POST['url']);
+        $url = esc_url_raw($this->get_post_value('url'));
+        if (empty($url)) {
+            wp_send_json_error(array('message' => __('L\'URL est requise', 'vercel-wp')));
+        }
         
         // Get Vercel API credentials to determine method used
-        $api_key = get_option('vercel_api_key');
-        $project_id = get_option('vercel_site_id');
+        $api_key = VercelWP_Deploy_Admin::get_sensitive_option('vercel_api_key');
+        $project_id = VercelWP_Deploy_Admin::get_sensitive_option('vercel_site_id');
         
-        $this->clear_cache_for_url($url);
+        $result = $this->clear_cache_for_url($url);
         
         // Determine which method was used for user feedback
-        if ($api_key && $project_id) {
-            $message = __('Cache cleared via Vercel API', 'vercel-wp');
+        if (!empty($result['method']) && $result['method'] === 'nextjs_revalidate') {
+            $message = !empty($result['success'])
+                ? __('Revalidation demandée via le point d’entrée du framework', 'vercel-wp')
+                : __('Le point d’entrée Draft/Revalidate n’a pas répondu correctement', 'vercel-wp');
+        } elseif ($api_key && $project_id) {
+            $message = __('Cache vidé via l\'API Vercel', 'vercel-wp');
         } else {
-            $message = __('Cache timestamp updated (Vercel API not configured)', 'vercel-wp');
+            $message = __('Horodatage du cache mis à jour (API Vercel non configurée)', 'vercel-wp');
         }
         
         wp_send_json_success(array('message' => $message));
@@ -664,8 +1127,25 @@ class VercelWP_Preview_Manager {
     
     private function get_preview_url($wordpress_url) {
         $settings = get_option('vercel_wp_preview_settings');
-        $vercel_preview_url = $settings['vercel_preview_url'];
-        
+        if (!is_array($settings)) {
+            $settings = array();
+        }
+
+        $framework = $this->get_preview_framework($settings);
+        $vercel_preview_url = isset($settings['vercel_preview_url']) ? $settings['vercel_preview_url'] : '';
+
+        if ($framework === 'draft_revalidate') {
+            if (!empty($settings['nextjs_draft_url'])) {
+                return $this->build_nextjs_draft_url($wordpress_url, $settings);
+            }
+
+            // Graceful fallback: keep preview button usable with static mapping
+            // when Draft endpoint is not yet configured.
+            if (empty($vercel_preview_url)) {
+                return $wordpress_url;
+            }
+        }
+
         if (empty($vercel_preview_url)) {
             return $wordpress_url;
         }
@@ -681,13 +1161,12 @@ class VercelWP_Preview_Manager {
     }
     
     private function map_wordpress_to_vercel_url($wordpress_url, $settings) {
-        $production_url = $settings['production_url'];
-        $vercel_preview_url = $settings['vercel_preview_url'];
+        $production_url = isset($settings['production_url']) ? $settings['production_url'] : '';
+        $vercel_preview_url = isset($settings['vercel_preview_url']) ? $settings['vercel_preview_url'] : '';
         
         // If we have a production URL, we can map paths
         if (!empty($production_url)) {
-            $parsed_wp = parse_url($wordpress_url);
-            $parsed_prod = parse_url($production_url);
+            $parsed_wp = wp_parse_url($wordpress_url);
             
             // Replace domain with Vercel preview URL
             $path = isset($parsed_wp['path']) ? $parsed_wp['path'] : '/';
@@ -705,7 +1184,7 @@ class VercelWP_Preview_Manager {
         
         // If no production URL but we have Vercel URL, try to map anyway
         if (!empty($vercel_preview_url)) {
-            $parsed_wp = parse_url($wordpress_url);
+            $parsed_wp = wp_parse_url($wordpress_url);
             $path = isset($parsed_wp['path']) ? $parsed_wp['path'] : '/';
             $query = isset($parsed_wp['query']) ? '?' . $parsed_wp['query'] : '';
             
@@ -722,42 +1201,195 @@ class VercelWP_Preview_Manager {
         // Fallback: use preview URL directly
         return $vercel_preview_url;
     }
+
+    /**
+     * Return current preview framework.
+     */
+    private function get_preview_framework($settings) {
+        if (!is_array($settings)) {
+            return 'static';
+        }
+
+        $mode = isset($settings['framework_mode']) ? sanitize_key($settings['framework_mode']) : 'static';
+        if (in_array($mode, array('nextjs', 'draft_revalidate'), true)) {
+            return 'draft_revalidate';
+        }
+
+        return 'static';
+    }
+
+    /**
+     * In draft/revalidate mode, keep the native WordPress preview button.
+     */
+    private function use_native_preview_button($settings) {
+        return $this->get_preview_framework($settings) === 'draft_revalidate';
+    }
+
+    /**
+     * Check if preview is configured for the selected framework.
+     */
+    private function has_preview_target($settings) {
+        if (!is_array($settings)) {
+            $settings = array();
+        }
+
+        if ($this->get_preview_framework($settings) === 'draft_revalidate') {
+            return !empty($settings['nextjs_draft_url']) || !empty($settings['vercel_preview_url']);
+        }
+
+        return !empty($settings['vercel_preview_url']);
+    }
+
+    /**
+     * Build normalized path + query from a WordPress URL.
+     */
+    private function get_path_with_query($url) {
+        $parsed = wp_parse_url($url);
+        if (!$parsed) {
+            return '/';
+        }
+
+        $path = isset($parsed['path']) ? $parsed['path'] : '/';
+        if (empty($path)) {
+            $path = '/';
+        }
+        if ($path[0] !== '/') {
+            $path = '/' . $path;
+        }
+
+        if (!empty($parsed['query'])) {
+            $path .= '?' . $parsed['query'];
+        }
+
+        return $path;
+    }
+
+    /**
+     * Resolve current post context for preview from URL/editor context.
+     */
+    private function get_preview_post_from_url($wordpress_url) {
+        $post_id = url_to_postid($wordpress_url);
+
+        if (!$post_id && is_admin() && isset($_GET['post'])) {
+            $post_id = absint(wp_unslash($_GET['post']));
+        }
+
+        if (!$post_id && is_admin() && isset($_POST['post_ID'])) {
+            $post_id = absint(wp_unslash($_POST['post_ID']));
+        }
+
+        if (!$post_id) {
+            global $post;
+            if ($post instanceof WP_Post) {
+                $post_id = (int) $post->ID;
+            }
+        }
+
+        if (!$post_id) {
+            return null;
+        }
+
+        $post_obj = get_post($post_id);
+        if (!$post_obj instanceof WP_Post) {
+            return null;
+        }
+
+        return $post_obj;
+    }
+
+    /**
+     * Append WordPress preview context args (id/nonce) for frontend draft handlers.
+     */
+    private function append_wordpress_preview_args($target_url, $wordpress_url) {
+        $post_obj = $this->get_preview_post_from_url($wordpress_url);
+        if (!$post_obj instanceof WP_Post) {
+            return $target_url;
+        }
+
+        $preview_id = (int) $post_obj->ID;
+        $preview_nonce = wp_create_nonce('post_preview_' . $preview_id);
+        $preview_path = $this->get_path_with_query($wordpress_url);
+
+        return add_query_arg(array(
+            'preview' => 'true',
+            'p' => $preview_id,
+            'id' => $preview_id,
+            'preview_id' => $preview_id,
+            'preview_nonce' => $preview_nonce,
+            'wp_post_id' => $preview_id,
+            'wp_post_type' => sanitize_key($post_obj->post_type),
+            'wp_post_status' => sanitize_key($post_obj->post_status),
+            'wp_preview_path' => $preview_path,
+        ), $target_url);
+    }
+
+    /**
+     * Build a Draft Mode preview URL from current content URL.
+     */
+    private function build_nextjs_draft_url($wordpress_url, $settings) {
+        $draft_url = isset($settings['nextjs_draft_url']) ? rtrim($settings['nextjs_draft_url'], '/') : '';
+        if (empty($draft_url)) {
+            return $wordpress_url;
+        }
+
+        $slug_param = isset($settings['nextjs_draft_param']) ? sanitize_key($settings['nextjs_draft_param']) : 'slug';
+        if (empty($slug_param)) {
+            $slug_param = 'slug';
+        }
+
+        $target_path = $this->get_path_with_query($wordpress_url);
+        $draft_preview_url = add_query_arg($slug_param, $target_path, $draft_url);
+        $secret = $this->get_draft_revalidate_secret($settings);
+        if (!empty($secret)) {
+            $secret_param = $this->get_draft_revalidate_secret_param($settings);
+            $draft_preview_url = add_query_arg($secret_param, $secret, $draft_preview_url);
+        }
+
+        // Add WP preview context so frontend can resolve autosave/revision content.
+        $draft_preview_url = $this->append_wordpress_preview_args($draft_preview_url, $wordpress_url);
+
+        // Keep behavior consistent with static mode by adding a cache-buster marker.
+        return add_query_arg('wp_preview', time(), $draft_preview_url);
+    }
     
     public function ajax_test_connection() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
         
-        $vercel_url = sanitize_url($_POST['vercel_url']);
+        $vercel_url = esc_url_raw($this->get_post_value('vercel_url'));
         
         if (empty($vercel_url)) {
-            wp_send_json_error(array('message' => __('Preview URL missing', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('URL de preview manquante', 'vercel-wp')));
+        }
+
+        if (!$this->is_safe_remote_url($vercel_url)) {
+            wp_send_json_error(array('message' => __('URL invalide. Utilisez uniquement une URL HTTPS publique.', 'vercel-wp')));
         }
         
         // Debug: Log tested URL
         // Debug logs removed
         
         // Test first with HEAD request to avoid redirections
-        $response = wp_remote_head($vercel_url, array(
+        $response = wp_safe_remote_head($vercel_url, array(
             'timeout' => 10,
             'redirection' => 0, // No redirection for HEAD
             'headers' => array(
                 'User-Agent' => 'HeadlessPreview/1.0',
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            ),
-            'sslverify' => false
+            )
         ));
         
         // If HEAD fails, try GET with limited redirections
         if (is_wp_error($response)) {
             // Debug logs removed
             
-            $response = wp_remote_get($vercel_url, array(
+            $response = wp_safe_remote_get($vercel_url, array(
                 'timeout' => 15,
                 'redirection' => 2, // Limit to 2 redirections only
                 'headers' => array(
                     'User-Agent' => 'HeadlessPreview/1.0',
                     'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                ),
-                'sslverify' => false
+                )
             ));
         }
         
@@ -769,13 +1401,13 @@ class VercelWP_Preview_Manager {
             if (strpos($error_message, 'too many redirects') !== false) {
                 // Try to diagnose redirect issue
                 $diagnosis = $this->diagnose_redirect_issue($vercel_url);
-                wp_send_json_error(array('message' => __('Too many redirects detected. ', 'vercel-wp') . $diagnosis));
+                wp_send_json_error(array('message' => __('Trop de redirections détectées. ', 'vercel-wp') . $diagnosis));
             } elseif (strpos($error_message, 'timeout') !== false) {
-                wp_send_json_error(array('message' => __('Connection timeout. URL takes too long to respond.', 'vercel-wp')));
+                wp_send_json_error(array('message' => __('Délai de connexion dépassé. L\'URL met trop de temps à répondre.', 'vercel-wp')));
             } elseif (strpos($error_message, 'SSL') !== false) {
-                wp_send_json_error(array('message' => __('SSL error. Check that the URL uses HTTPS correctly.', 'vercel-wp')));
+                wp_send_json_error(array('message' => __('Erreur SSL. Vérifiez que l\'URL utilise correctement HTTPS.', 'vercel-wp')));
             } else {
-                wp_send_json_error(array('message' => sprintf(__('Connection error: %s', 'vercel-wp'), $error_message)));
+                wp_send_json_error(array('message' => sprintf(__('Erreur de connexion : %s', 'vercel-wp'), $error_message)));
             }
         }
         
@@ -785,13 +1417,13 @@ class VercelWP_Preview_Manager {
         // Debug logs removed
         
         if ($status_code >= 200 && $status_code < 400) {
-            $message = sprintf(__('Connection successful! (HTTP Code: %d)', 'vercel-wp'), $status_code);
+            $message = sprintf(__('Connexion réussie ! (Code HTTP : %d)', 'vercel-wp'), $status_code);
             if ($final_url && $final_url !== $vercel_url) {
-                $message .= sprintf(__(' - Redirected to: %s', 'vercel-wp'), $final_url);
+                $message .= sprintf(__(' - Redirigé vers : %s', 'vercel-wp'), $final_url);
             }
             wp_send_json_success(array('message' => $message));
         } else {
-            wp_send_json_error(array('message' => sprintf(__('HTTP error %d. Check that the URL is accessible.', 'vercel-wp'), $status_code)));
+            wp_send_json_error(array('message' => sprintf(__('Erreur HTTP %d. Vérifiez que l\'URL est accessible.', 'vercel-wp'), $status_code)));
         }
     }
     
@@ -802,10 +1434,13 @@ class VercelWP_Preview_Manager {
         $max_redirects = 5;
         
         for ($i = 0; $i < $max_redirects; $i++) {
-            $response = wp_remote_head($current_url, array(
+            if (!$this->is_safe_remote_url($current_url)) {
+                break;
+            }
+
+            $response = wp_safe_remote_head($current_url, array(
                 'timeout' => 5,
-                'redirection' => 0,
-                'sslverify' => false
+                'redirection' => 0
             ));
             
             if (is_wp_error($response)) {
@@ -822,6 +1457,20 @@ class VercelWP_Preview_Manager {
             );
             
             if ($status_code >= 300 && $status_code < 400 && $location) {
+                if (strpos($location, '//') === 0) {
+                    $location = 'https:' . $location;
+                } elseif (strpos($location, '/') === 0) {
+                    $parsed_current = wp_parse_url($current_url);
+                    if (empty($parsed_current['scheme']) || empty($parsed_current['host'])) {
+                        break;
+                    }
+                    $location = $parsed_current['scheme'] . '://' . $parsed_current['host'] . $location;
+                }
+
+                if (!$this->is_safe_remote_url($location)) {
+                    break;
+                }
+
                 $current_url = $location;
             } else {
                 break;
@@ -833,127 +1482,161 @@ class VercelWP_Preview_Manager {
             foreach ($redirects as $redirect) {
                 $chain .= $redirect['url'] . ' → ';
             }
-            return __('Redirect chain detected: ' . rtrim($chain, ' → '), 'vercel-wp');
+            return __('Chaîne de redirections détectée : ' . rtrim($chain, ' → '), 'vercel-wp');
         }
         
-        return __('Check that the URL is correct and accessible.', 'vercel-wp');
+        return __('Vérifiez que l\'URL est correcte et accessible.', 'vercel-wp');
     }
     
     public function ajax_test_connection_debug() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
         
-        $vercel_url = sanitize_url($_POST['vercel_url']);
+        $vercel_url = esc_url_raw($this->get_post_value('vercel_url'));
         
         if (empty($vercel_url)) {
-            wp_send_json_error(array('debug_info' => 'Preview URL missing'));
+            wp_send_json_error(array('debug_info' => __('URL de preview manquante', 'vercel-wp')));
+        }
+
+        if (!$this->is_safe_remote_url($vercel_url)) {
+            wp_send_json_error(array('debug_info' => __('URL invalide. Utilisez uniquement une URL HTTPS publique.', 'vercel-wp')));
         }
         
-        $debug_info = "=== ADVANCED DIAGNOSTIC ===\n";
-        $debug_info .= "Tested URL: " . $vercel_url . "\n\n";
+        $debug_info = "=== DIAGNOSTIC AVANCÉ ===\n";
+        $debug_info .= "URL testée : " . $vercel_url . "\n\n";
         
-        // Test 1: Simple HEAD request
-        $debug_info .= "1. HEAD test (no redirection):\n";
-        $response = wp_remote_head($vercel_url, array(
+        // Test 1: Requête HEAD simple
+        $debug_info .= "1. Test HEAD (sans redirection) :\n";
+        $response = wp_safe_remote_head($vercel_url, array(
             'timeout' => 10,
-            'redirection' => 0,
-            'sslverify' => false
+            'redirection' => 0
         ));
         
         if (is_wp_error($response)) {
-            $debug_info .= "   ❌ Error: " . $response->get_error_message() . "\n";
+            $debug_info .= "   ❌ Erreur : " . $response->get_error_message() . "\n";
         } else {
             $status = wp_remote_retrieve_response_code($response);
             $location = wp_remote_retrieve_header($response, 'location');
-            $debug_info .= "   ✅ Status: " . $status . "\n";
+            $debug_info .= "   ✅ Statut : " . $status . "\n";
             if ($location) {
-                $debug_info .= "   🔄 Redirect to: " . $location . "\n";
+                $debug_info .= "   🔄 Redirection vers : " . $location . "\n";
             }
         }
         
-        // Test 2: Manual redirect following
-        $debug_info .= "\n2. Redirect following:\n";
+        // Test 2: Suivi manuel des redirections
+        $debug_info .= "\n2. Suivi des redirections :\n";
         $current_url = $vercel_url;
         $redirects = array();
         $max_redirects = 5;
         
         for ($i = 0; $i < $max_redirects; $i++) {
-            $debug_info .= "   Step " . ($i + 1) . ": " . $current_url . "\n";
+            $debug_info .= "   Étape " . ($i + 1) . " : " . $current_url . "\n";
             
-            $response = wp_remote_head($current_url, array(
+            if (!$this->is_safe_remote_url($current_url)) {
+                $debug_info .= "   ❌ Cible de redirection non sécurisée bloquée\n";
+                break;
+            }
+
+            $response = wp_safe_remote_head($current_url, array(
                 'timeout' => 5,
-                'redirection' => 0,
-                'sslverify' => false
+                'redirection' => 0
             ));
             
             if (is_wp_error($response)) {
-                $debug_info .= "   ❌ Error: " . $response->get_error_message() . "\n";
+                $debug_info .= "   ❌ Erreur : " . $response->get_error_message() . "\n";
                 break;
             }
             
             $status_code = wp_remote_retrieve_response_code($response);
             $location = wp_remote_retrieve_header($response, 'location');
             
-            $debug_info .= "   Status: " . $status_code . "\n";
+            $debug_info .= "   Statut : " . $status_code . "\n";
             
             if ($status_code >= 300 && $status_code < 400 && $location) {
-                $debug_info .= "   🔄 Redirect to: " . $location . "\n";
+                $debug_info .= "   🔄 Redirection vers : " . $location . "\n";
+                if (strpos($location, '//') === 0) {
+                    $location = 'https:' . $location;
+                } elseif (strpos($location, '/') === 0) {
+                    $parsed_current = wp_parse_url($current_url);
+                    if (empty($parsed_current['scheme']) || empty($parsed_current['host'])) {
+                        $debug_info .= "   ❌ Échec de l'analyse de la redirection\n";
+                        break;
+                    }
+                    $location = $parsed_current['scheme'] . '://' . $parsed_current['host'] . $location;
+                }
+                if (!$this->is_safe_remote_url($location)) {
+                    $debug_info .= "   ❌ Redirection bloquée (cible privée/non HTTPS)\n";
+                    break;
+                }
                 $current_url = $location;
                 $redirects[] = $current_url;
             } else {
-                $debug_info .= "   ✅ End of redirect chain\n";
+                $debug_info .= "   ✅ Fin de la chaîne de redirections\n";
                 break;
             }
         }
         
         if (count($redirects) >= $max_redirects) {
-            $debug_info .= "\n⚠️  PROBLEM DETECTED: Too many redirects!\n";
-            $debug_info .= "Complete chain:\n";
+            $debug_info .= "\n⚠️  PROBLÈME DÉTECTÉ : trop de redirections !\n";
+            $debug_info .= "Chaîne complète :\n";
             $debug_info .= $vercel_url . "\n";
             foreach ($redirects as $redirect) {
                 $debug_info .= "→ " . $redirect . "\n";
             }
         }
         
-        // Test 3: DNS verification
-        $debug_info .= "\n3. DNS verification:\n";
+        // Test 3: Vérification DNS
+        $debug_info .= "\n3. Vérification DNS :\n";
         $parsed_url = parse_url($vercel_url);
         $host = $parsed_url['host'];
-        $debug_info .= "   Host: " . $host . "\n";
+        $debug_info .= "   Hôte : " . $host . "\n";
         
         $ip = gethostbyname($host);
         if ($ip === $host) {
-            $debug_info .= "   ❌ DNS resolution failed\n";
+            $debug_info .= "   ❌ Échec de la résolution DNS\n";
         } else {
-            $debug_info .= "   ✅ IP resolved: " . $ip . "\n";
+            $debug_info .= "   ✅ IP résolue : " . $ip . "\n";
         }
         
-        // Test 4: Basic connectivity test
-        $debug_info .= "\n4. Connectivity test:\n";
+        // Test 4: Test de connectivité
+        $debug_info .= "\n4. Test de connectivité :\n";
         $socket = @fsockopen($host, 443, $errno, $errstr, 5);
         if ($socket) {
             $debug_info .= "   ✅ Port 443 (HTTPS) accessible\n";
             fclose($socket);
         } else {
-            $debug_info .= "   ❌ Port 443 inaccessible: " . $errstr . "\n";
+            $debug_info .= "   ❌ Port 443 inaccessible : " . $errstr . "\n";
         }
         
-        $debug_info .= "\n=== END OF DIAGNOSTIC ===";
-        
+        $debug_info .= "\n=== FIN DU DIAGNOSTIC ===";
+
         wp_send_json_success(array('debug_info' => $debug_info));
     }
-    
+
     public function ajax_check_status() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
-        
-        $settings = get_option('vercel_wp_preview_settings');
-        $vercel_url = $settings['vercel_preview_url'];
+        $this->ensure_ajax_capability('edit_posts');
+
+        $settings = get_option('vercel_wp_preview_settings', array('vercel_preview_url' => ''));
+        $framework = $this->get_preview_framework($settings);
+        if ($framework === 'draft_revalidate') {
+            $vercel_url = !empty($settings['nextjs_draft_url'])
+                ? $this->build_nextjs_draft_url(home_url('/'), $settings)
+                : '';
+        } else {
+            $vercel_url = isset($settings['vercel_preview_url']) ? $settings['vercel_preview_url'] : '';
+        }
         
         if (empty($vercel_url)) {
-            wp_send_json_success(array('connected' => false, 'message' => __('URL not configured', 'vercel-wp')));
+            wp_send_json_success(array('connected' => false, 'message' => __('Point d’entrée de preview non configuré', 'vercel-wp')));
+        }
+
+        if (!$this->is_safe_remote_url($vercel_url)) {
+            wp_send_json_error(array('message' => __('L\'URL de preview configurée n\'est pas une URL HTTPS publique valide', 'vercel-wp')));
         }
         
         // Quick connection test
-        $response = wp_remote_get($vercel_url, array(
+        $response = wp_safe_remote_get($vercel_url, array(
             'timeout' => 5,
             'headers' => array(
                 'User-Agent' => 'HeadlessPreview/1.0'
@@ -964,7 +1647,7 @@ class VercelWP_Preview_Manager {
         
         wp_send_json_success(array(
             'connected' => $connected,
-            'message' => $connected ? __('Connection active', 'vercel-wp') : __('Connection inactive', 'vercel-wp')
+            'message' => $connected ? __('Connexion active', 'vercel-wp') : __('Connexion inactive', 'vercel-wp')
         ));
     }
     
@@ -973,12 +1656,17 @@ class VercelWP_Preview_Manager {
      */
     public function ajax_preview_urls() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
         
-        $old_url = sanitize_url($_POST['old_url']);
-        $new_url = sanitize_url($_POST['new_url']);
+        $old_url = esc_url_raw($this->get_post_value('old_url'));
+        $new_url = esc_url_raw($this->get_post_value('new_url'));
         
         if (empty($old_url) || empty($new_url)) {
-            wp_send_json_error(array('message' => __('URLs are required', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Les URLs sont requises', 'vercel-wp')));
+        }
+
+        if (!wp_http_validate_url($old_url) || !wp_http_validate_url($new_url)) {
+            wp_send_json_error(array('message' => __('Format d\'URL invalide', 'vercel-wp')));
         }
         
         try {
@@ -989,7 +1677,7 @@ class VercelWP_Preview_Manager {
             
         } catch (Exception $e) {
             // Debug logs removed
-            wp_send_json_error(array('message' => __('Error occurred while previewing URLs', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Une erreur est survenue lors de la prévisualisation des URLs', 'vercel-wp')));
         }
     }
     
@@ -1087,12 +1775,17 @@ class VercelWP_Preview_Manager {
      */
     public function ajax_replace_urls() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
         
-        $old_url = sanitize_url($_POST['old_url']);
-        $new_url = sanitize_url($_POST['new_url']);
+        $old_url = esc_url_raw($this->get_post_value('old_url'));
+        $new_url = esc_url_raw($this->get_post_value('new_url'));
         
         if (empty($old_url) || empty($new_url)) {
-            wp_send_json_error(array('message' => __('URLs are required', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Les URLs sont requises', 'vercel-wp')));
+        }
+
+        if (!wp_http_validate_url($old_url) || !wp_http_validate_url($new_url)) {
+            wp_send_json_error(array('message' => __('Format d\'URL invalide', 'vercel-wp')));
         }
         
         try {
@@ -1105,13 +1798,13 @@ class VercelWP_Preview_Manager {
             }
             
             wp_send_json_success(array(
-                'message' => sprintf(__('Successfully replaced %d occurrences', 'vercel-wp'), $replaced_count),
+                'message' => sprintf(__('%d occurrences remplacées avec succès', 'vercel-wp'), $replaced_count),
                 'replaced_count' => $replaced_count
             ));
             
         } catch (Exception $e) {
             // Debug logs removed
-            wp_send_json_error(array('message' => __('Error occurred while replacing URLs', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Une erreur est survenue lors du remplacement des URLs', 'vercel-wp')));
         }
     }
     
@@ -1143,6 +1836,7 @@ class VercelWP_Preview_Manager {
      */
     public function ajax_apply_production_url_update() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
         
         $settings = get_option('vercel_wp_preview_settings', array());
         
@@ -1158,14 +1852,14 @@ class VercelWP_Preview_Manager {
             if ($result) {
                 // Debug logs removed
                 wp_send_json_success(array(
-                    'message' => __('Production URL updated successfully', 'vercel-wp'),
+                    'message' => __('URL de production mise à jour avec succès', 'vercel-wp'),
                     'new_production_url' => $update_info['new_url']
                 ));
             } else {
-                wp_send_json_error(array('message' => __('Failed to update production URL', 'vercel-wp')));
+                wp_send_json_error(array('message' => __('Échec de la mise à jour de l\'URL de production', 'vercel-wp')));
             }
         } else {
-            wp_send_json_error(array('message' => __('No pending production URL update found', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Aucune mise à jour d\'URL de production en attente trouvée', 'vercel-wp')));
         }
     }
     
@@ -1174,13 +1868,77 @@ class VercelWP_Preview_Manager {
      */
     public function ajax_save_settings() {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
         
         $settings = get_option('vercel_wp_preview_settings', array());
-        
+
+        if (isset($_POST['framework_mode'])) {
+            $framework_mode = sanitize_key($this->get_post_value('framework_mode'));
+            $settings['framework_mode'] = in_array($framework_mode, array('nextjs', 'draft_revalidate'), true) ? 'draft_revalidate' : 'static';
+        }
+
+        if (isset($_POST['vercel_preview_url'])) {
+            $settings['vercel_preview_url'] = rtrim(esc_url_raw($this->get_post_value('vercel_preview_url')), '/');
+        }
+
+        if (isset($_POST['nextjs_draft_url'])) {
+            $settings['nextjs_draft_url'] = rtrim(esc_url_raw($this->get_post_value('nextjs_draft_url')), '/');
+        }
+
+        if (isset($_POST['nextjs_revalidate_url'])) {
+            $settings['nextjs_revalidate_url'] = rtrim(esc_url_raw($this->get_post_value('nextjs_revalidate_url')), '/');
+        }
+
+        if (isset($_POST['nextjs_draft_param'])) {
+            $settings['nextjs_draft_param'] = sanitize_key($this->get_post_value('nextjs_draft_param'));
+        }
+
+        if (isset($_POST['nextjs_revalidate_param'])) {
+            $settings['nextjs_revalidate_param'] = sanitize_key($this->get_post_value('nextjs_revalidate_param'));
+        }
+
+        if (isset($_POST['draft_revalidate_secret_param'])) {
+            $secret_param = sanitize_key($this->get_post_value('draft_revalidate_secret_param'));
+            $settings['draft_revalidate_secret_param'] = !empty($secret_param) ? $secret_param : 'secret';
+        }
+
+        if (isset($_POST['draft_revalidate_secret'])) {
+            $secret = sanitize_text_field($this->get_post_value('draft_revalidate_secret'));
+            if (!empty($secret)) {
+                $settings['draft_revalidate_secret'] = $secret;
+            }
+        }
+
+        if (isset($_POST['headless_show_menus_menu'])) {
+            $settings['headless_show_menus_menu'] = filter_var(wp_unslash($_POST['headless_show_menus_menu']), FILTER_VALIDATE_BOOLEAN);
+        }
+
         // Update production URL if provided
         if (isset($_POST['production_url'])) {
-            $settings['production_url'] = sanitize_url($_POST['production_url']);
+            $production_url = esc_url_raw($this->get_post_value('production_url'));
+
+            if (!empty($production_url) && !$this->is_safe_remote_url($production_url)) {
+                wp_send_json_error(array('message' => __('L\'URL de production doit être une URL HTTPS publique valide', 'vercel-wp')));
+            }
+
+            $settings['production_url'] = $production_url;
             // Debug logs removed
+        }
+
+        // Auto-fill Draft/Revalidate endpoints from production URL when empty.
+        $current_mode = isset($settings['framework_mode']) ? sanitize_key($settings['framework_mode']) : 'static';
+        if ($current_mode === 'draft_revalidate' && !empty($settings['production_url'])) {
+            $production_base = rtrim((string) $settings['production_url'], '/');
+            if (empty($settings['nextjs_draft_url'])) {
+                $settings['nextjs_draft_url'] = $production_base . '/api/draft';
+            }
+            if (empty($settings['nextjs_revalidate_url'])) {
+                $settings['nextjs_revalidate_url'] = $production_base . '/api/revalidate';
+            }
+        }
+
+        if ($current_mode === 'draft_revalidate' && empty(trim((string) ($settings['draft_revalidate_secret'] ?? '')))) {
+            wp_send_json_error(array('message' => __('Le secret est obligatoire en mode Draft + Revalidate. Utilisez le bouton "Générer".', 'vercel-wp')));
         }
         
         $result = update_option('vercel_wp_preview_settings', $settings);
@@ -1190,35 +1948,178 @@ class VercelWP_Preview_Manager {
         
         if ($result) {
             wp_send_json_success(array(
-                'message' => __('Settings saved successfully', 'vercel-wp'),
+                'message' => __('Réglages enregistrés avec succès', 'vercel-wp'),
                 'production_url' => $settings['production_url']
             ));
         } else {
-            wp_send_json_error(array('message' => __('Failed to save settings', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Échec de l\'enregistrement des réglages', 'vercel-wp')));
         }
     }
-    
-    
+
+    /**
+     * Backward-compatible autosave endpoint.
+     */
+    public function ajax_auto_save() {
+        $this->ajax_save_settings();
+    }
+
+    /**
+     * Return lightweight ACF debug information.
+     */
+    public function ajax_get_acf_debug() {
+        check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
+
+        $debug = get_option('vercel_wp_preview_acf_debug', array());
+        wp_send_json_success(array('entries' => $debug));
+    }
+
+    /**
+     * Clear stored ACF debug information.
+     */
+    public function ajax_clear_acf_debug() {
+        check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
+
+        delete_option('vercel_wp_preview_acf_debug');
+        wp_send_json_success(array('message' => __('Diagnostic ACF effacé', 'vercel-wp')));
+    }
+
+    /**
+     * Inspect one ACF/meta field for a specific post.
+     */
+    public function ajax_inspect_acf_field() {
+        check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
+        $this->ensure_ajax_capability('manage_options');
+
+        $post_id = absint($this->get_post_value('post_id'));
+        $field_name = sanitize_key($this->get_post_value('field_name'));
+
+        if (!$post_id || empty($field_name)) {
+            wp_send_json_error(array('message' => __('post_id et field_name sont requis', 'vercel-wp')));
+        }
+
+        $raw_meta = get_post_meta($post_id, $field_name, true);
+        $acf_value = function_exists('get_field') ? get_field($field_name, $post_id) : null;
+
+        wp_send_json_success(array(
+            'post_id' => $post_id,
+            'field_name' => $field_name,
+            'meta_value' => $raw_meta,
+            'acf_value' => $acf_value,
+        ));
+    }
+
     private function clear_cache_for_url($url) {
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if ($this->get_preview_framework($settings) === 'draft_revalidate' && !empty($settings['nextjs_revalidate_url'])) {
+            $revalidation_result = $this->trigger_nextjs_revalidate($url, $settings);
+            $settings['last_cache_clear'] = time();
+            update_option('vercel_wp_preview_settings', $settings);
+
+            return $revalidation_result;
+        }
+
         // Get Vercel API credentials
-        $api_key = get_option('vercel_api_key');
-        $project_id = get_option('vercel_site_id');
+        $api_key = VercelWP_Deploy_Admin::get_sensitive_option('vercel_api_key');
+        $project_id = VercelWP_Deploy_Admin::get_sensitive_option('vercel_site_id');
         
         if (!$api_key || !$project_id) {
             // Fallback to timestamp method if API credentials not configured
-            $settings = get_option('vercel_wp_preview_settings');
             $settings['last_cache_clear'] = time();
             update_option('vercel_wp_preview_settings', $settings);
-            return;
+            return array(
+                'method' => 'timestamp',
+                'success' => true,
+            );
         }
         
         // Try to clear Vercel cache directly via API
-        $this->purge_vercel_cache_direct($api_key, $project_id);
+        $purged = $this->purge_vercel_cache_direct($api_key, $project_id);
         
         // Also update timestamp as fallback
-        $settings = get_option('vercel_wp_preview_settings');
         $settings['last_cache_clear'] = time();
         update_option('vercel_wp_preview_settings', $settings);
+
+        return array(
+            'method' => 'vercel_api',
+            'success' => (bool) $purged,
+        );
+    }
+
+    /**
+     * Trigger revalidation endpoint for a specific path.
+     */
+    private function trigger_nextjs_revalidate($wordpress_url, $settings) {
+        $endpoint = isset($settings['nextjs_revalidate_url']) ? rtrim($settings['nextjs_revalidate_url'], '/') : '';
+        if (empty($endpoint) || !$this->is_safe_remote_url($endpoint)) {
+            return array(
+                'method' => 'nextjs_revalidate',
+                'success' => false,
+            );
+        }
+
+        $path_param = isset($settings['nextjs_revalidate_param']) ? sanitize_key($settings['nextjs_revalidate_param']) : 'path';
+        if (empty($path_param)) {
+            $path_param = 'path';
+        }
+
+        $path = $this->get_path_with_query($wordpress_url);
+        $request_url = add_query_arg($path_param, $path, $endpoint);
+        $secret = $this->get_draft_revalidate_secret($settings);
+        $secret_param = $this->get_draft_revalidate_secret_param($settings);
+        if (!empty($secret)) {
+            $request_url = add_query_arg($secret_param, $secret, $request_url);
+        }
+
+        $response = wp_safe_remote_get($request_url, array(
+            'timeout' => 20,
+            'redirection' => 3,
+            'headers' => array(
+                'User-Agent' => 'WordPress-Vercel-WP/' . VERCEL_WP_VERSION,
+                'Accept' => 'application/json,text/plain,*/*',
+            ),
+        ));
+
+        if (!is_wp_error($response)) {
+            $status_code = wp_remote_retrieve_response_code($response);
+            if ($status_code >= 200 && $status_code < 300) {
+                return array(
+                    'method' => 'nextjs_revalidate',
+                    'success' => true,
+                );
+            }
+        }
+
+        // Fallback for implementations expecting POST payload.
+        $response = wp_safe_remote_post($endpoint, array(
+            'timeout' => 20,
+            'redirection' => 3,
+            'headers' => array(
+                'Content-Type' => 'application/json',
+                'User-Agent' => 'WordPress-Vercel-WP/' . VERCEL_WP_VERSION,
+                'Accept' => 'application/json,text/plain,*/*',
+            ),
+            'body' => wp_json_encode(array(
+                $path_param => $path,
+                'path' => $path,
+                $secret_param => $secret,
+                'source' => 'vercel-wp',
+            )),
+        ));
+
+        if (is_wp_error($response)) {
+            return array(
+                'method' => 'nextjs_revalidate',
+                'success' => false,
+            );
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        return array(
+            'method' => 'nextjs_revalidate',
+            'success' => ($status_code >= 200 && $status_code < 300),
+        );
     }
     
     /**
@@ -1265,13 +2166,21 @@ class VercelWP_Preview_Manager {
         
         // Add new options if they don't exist
         $default_options = array(
+            'framework_mode' => 'static',
             'vercel_preview_url' => '',
             'production_url' => '',
+            'nextjs_draft_url' => '',
+            'nextjs_revalidate_url' => '',
+            'nextjs_draft_param' => 'slug',
+            'nextjs_revalidate_param' => 'path',
+            'draft_revalidate_secret' => '',
+            'draft_revalidate_secret_param' => 'secret',
             'cache_duration' => 300,
             'auto_refresh' => true,
             'show_button_admin_bar' => true,
             'show_button_editor' => true,
-            'disable_theme_page' => true
+            'disable_theme_page' => true,
+            'headless_show_menus_menu' => true
         );
         
         $updated = false;
@@ -1281,7 +2190,7 @@ class VercelWP_Preview_Manager {
                 $updated = true;
             }
         }
-        
+
         if ($updated) {
             update_option('vercel_wp_preview_settings', $settings);
         }
@@ -1291,30 +2200,8 @@ class VercelWP_Preview_Manager {
      * Initialize headless functionality
      */
     public function init_headless_functionality() {
-        // Get current settings
-        $settings = get_option('vercel_wp_preview_settings', array());
-        
-        // Debug: Log initialization
-        error_log('Vercel WP: init_headless_functionality called');
-        error_log('Vercel WP: Settings: ' . print_r($settings, true));
-        
         // Define URL constants
         $this->define_url_constants();
-        
-        // Admin bar URL modification is now handled directly in constructor
-        if (!empty($settings['production_url'])) {
-            error_log('Vercel WP: Production URL found: ' . $settings['production_url']);
-        } else {
-            error_log('Vercel WP: No production URL configured');
-        }
-        
-        // Note: Theme page disabling hooks are now registered in constructor
-        // to ensure they run early enough. The functions check settings internally.
-        
-        // Redirect all public routes only if production URL is configured
-        if (!empty($settings['production_url'])) {
-            add_action('template_redirect', array($this, 'redirect_all_public_routes'), 1);
-        }
     }
     
     /**
@@ -1331,7 +2218,11 @@ class VercelWP_Preview_Manager {
         
         // Define PREVIEW_URL (Vercel preview URL)
         if (!defined('PREVIEW_URL')) {
-            $preview_url = !empty($settings['vercel_preview_url']) ? $settings['vercel_preview_url'] : $frontend_url;
+            if ($this->get_preview_framework($settings) === 'draft_revalidate' && !empty($settings['nextjs_draft_url'])) {
+                $preview_url = $settings['nextjs_draft_url'];
+            } else {
+                $preview_url = !empty($settings['vercel_preview_url']) ? $settings['vercel_preview_url'] : $frontend_url;
+            }
             define('PREVIEW_URL', rtrim($preview_url, '/'));
         }
         
@@ -1709,7 +2600,7 @@ class VercelWP_Preview_Manager {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Permission refusée', 'vercel-wp')));
         }
         
         $settings = get_option('vercel_wp_preview_settings', array());
@@ -1782,13 +2673,13 @@ class VercelWP_Preview_Manager {
         check_ajax_referer('vercel_wp_preview_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied', 'vercel-wp')));
+            wp_send_json_error(array('message' => __('Permission refusée', 'vercel-wp')));
         }
         
         // Clear permalink cache
         $this->clear_permalink_cache();
         
-        wp_send_json_success(array('message' => __('Permalink cache cleared successfully', 'vercel-wp')));
+        wp_send_json_success(array('message' => __('Cache des permaliens vidé avec succès', 'vercel-wp')));
     }
     
     /**
@@ -1826,18 +2717,11 @@ class VercelWP_Preview_Manager {
      * Clear permalink cache when settings change
      */
     public function clear_permalink_cache() {
-        // Clear WordPress object cache
-        wp_cache_flush();
-        
-        // Clear permalink structure cache
+        // Clear permalink structure cache.
         delete_option('rewrite_rules');
         
-        // Force rewrite rules refresh
-        flush_rewrite_rules();
-        
-        // Clear any custom permalink caches
-        global $wpdb;
-        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '%permalink%' AND option_name != 'permalink_structure'");
+        // Soft refresh avoids unnecessary .htaccess writes.
+        flush_rewrite_rules(false);
         
         // Update URL constants
         $this->define_url_constants();
@@ -1865,12 +2749,10 @@ class VercelWP_Preview_Manager {
                 
                 if (siteNameLink) {
                     siteNameLink.setAttribute('href', productionUrl);
-                    console.log('Vercel WP: Updated site-name link to:', productionUrl);
                 }
                 
                 if (viewSiteLink) {
                     viewSiteLink.setAttribute('href', productionUrl);
-                    console.log('Vercel WP: Updated view-site link to:', productionUrl);
                 }
                 
                 // Also try with .ab-item class
@@ -1878,7 +2760,6 @@ class VercelWP_Preview_Manager {
                 abItems.forEach(function(item) {
                     if (item.tagName === 'A') {
                         item.setAttribute('href', productionUrl);
-                        console.log('Vercel WP: Updated ab-item link to:', productionUrl);
                     }
                 });
             }
@@ -1897,6 +2778,59 @@ class VercelWP_Preview_Manager {
         })();
         </script>
         <?php
+    }
+
+    /**
+     * Ensure menus/widgets are available in headless mode.
+     */
+    public function ensure_headless_theme_supports() {
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (empty($settings['disable_theme_page']) || empty($settings['headless_show_menus_menu'])) {
+            return;
+        }
+
+        if (!current_theme_supports('menus')) {
+            add_theme_support('menus');
+        }
+
+        if (!current_theme_supports('widgets')) {
+            add_theme_support('widgets');
+        }
+    }
+
+    /**
+     * Add a direct "Menus" item in admin sidebar for headless setups.
+     */
+    public function add_headless_menus_shortcut() {
+        $settings = get_option('vercel_wp_preview_settings', array());
+        if (empty($settings['disable_theme_page']) || empty($settings['headless_show_menus_menu'])) {
+            return;
+        }
+
+        add_menu_page(
+            __('Menus', 'vercel-wp'),
+            __('Menus', 'vercel-wp'),
+            'edit_theme_options',
+            'vercel-wp-headless-menus',
+            array($this, 'render_headless_menus_shortcut'),
+            'dashicons-menu-alt3',
+            61
+        );
+    }
+
+    /**
+     * Redirect shortcut page to WordPress nav menus screen.
+     */
+    public function render_headless_menus_shortcut() {
+        if (!current_user_can('edit_theme_options')) {
+            wp_die(__('Permission refusée', 'vercel-wp'));
+        }
+        $menus_url = admin_url('nav-menus.php');
+        echo '<div class="wrap"><h1>' . esc_html__('Menus', 'vercel-wp') . '</h1>';
+        echo '<p>' . esc_html__('Redirection vers la page Menus…', 'vercel-wp') . '</p>';
+        echo '<p><a class="button button-primary" href="' . esc_url($menus_url) . '">' . esc_html__('Ouvrir Menus', 'vercel-wp') . '</a></p>';
+        echo '<script>window.location.replace(' . wp_json_encode($menus_url) . ');</script>';
+        echo '</div>';
     }
     
     /**
@@ -2005,9 +2939,9 @@ class VercelWP_Preview_Manager {
             #menu-appearance,
             li#toplevel_page_themes,
             li#menu-appearance,
-            a[href*="themes.php"],
-            a[href*="theme-install.php"],
-            a[href*="theme-editor.php"] {
+            #adminmenu a[href*="themes.php"],
+            #adminmenu a[href*="theme-install.php"],
+            #adminmenu a[href*="theme-editor.php"] {
                 display: none !important;
                 visibility: hidden !important;
             }
@@ -2025,21 +2959,8 @@ class VercelWP_Preview_Manager {
      * Redirect all public routes to the production URL
      */
     public function redirect_all_public_routes() {
-        if (!is_admin()) {
-            $settings = get_option('vercel_wp_preview_settings', array());
-            $production_url = !empty($settings['production_url']) ? rtrim($settings['production_url'], '/') : '';
-            
-            // If no production URL is configured, don't redirect
-            if (empty($production_url)) {
-                return;
-            }
-            
-            global $wp;
-            $current_url = home_url(add_query_arg(array(), $wp->request));
-            $new_url = str_replace(home_url(), $production_url, $current_url);
-            wp_redirect($new_url, 301);
-            exit;
-        }
+        // Backward-compatible wrapper around the unified redirect logic.
+        $this->redirect_to_frontend_url();
     }
     
     /**
@@ -2104,18 +3025,14 @@ class VercelWP_Preview_Manager {
             ));
             $replaced_count += $result;
             
-        // Replace in options using enhanced method (excluding plugin data and admin URLs)
-        $this->replace_in_options_safe($search_pattern, $replacement, $replaced_count);
+            // Replace in options using enhanced method (excluding plugin data and admin URLs)
+            $this->replace_in_options_safe($search_pattern, $replacement, $replaced_count);
+
+            // Replace in widgets/customizer/theme options for each URL variation.
+            $this->replace_in_widgets($search_pattern, $replacement, $replaced_count);
+            $this->replace_in_customizer($search_pattern, $replacement, $replaced_count);
+            $this->replace_in_theme_mods($search_pattern, $replacement, $replaced_count);
         }
-        
-        // Replace in widgets (more comprehensive)
-        $this->replace_in_widgets($search_pattern, $replacement, $replaced_count);
-        
-        // Replace in customizer options
-        $this->replace_in_customizer($search_pattern, $replacement, $replaced_count);
-        
-        // Replace in theme mods
-        $this->replace_in_theme_mods($search_pattern, $replacement, $replaced_count);
         
         // Log the replacement
         // Debug logs removed
@@ -2536,9 +3453,6 @@ class VercelWP_Preview_Manager {
     private function clear_acf_caches_after_replacement() {
         // Debug logs removed
         
-        // Clear WordPress object cache
-        wp_cache_flush();
-        
         // Clear ACF stores if available
         if (function_exists('acf_get_store')) {
             $stores = array('fields', 'values', 'groups', 'local-fields', 'local-groups');
@@ -2570,12 +3484,33 @@ class VercelWP_Preview_Manager {
             }
         }
         
-        // Clear any ACF-related meta caches
-        // Note: wp_cache_delete_group() doesn't exist in WordPress core
-        // Using wp_cache_flush() as fallback
+        // Clear object cache once at the end.
         wp_cache_flush();
         
         // Debug logs removed
+    }
+
+    /**
+     * Generate a URL-safe shared secret for draft/revalidate endpoints.
+     */
+    private function generate_draft_revalidate_secret() {
+        return wp_generate_password(40, false, false);
+    }
+
+    /**
+     * Return configured shared secret.
+     */
+    private function get_draft_revalidate_secret($settings) {
+        $secret = isset($settings['draft_revalidate_secret']) ? sanitize_text_field($settings['draft_revalidate_secret']) : '';
+        return trim($secret);
+    }
+
+    /**
+     * Return configured query/body parameter name for secret.
+     */
+    private function get_draft_revalidate_secret_param($settings) {
+        $secret_param = isset($settings['draft_revalidate_secret_param']) ? sanitize_key($settings['draft_revalidate_secret_param']) : 'secret';
+        return !empty($secret_param) ? $secret_param : 'secret';
     }
 }
 

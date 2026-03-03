@@ -3,7 +3,7 @@
  */
 jQuery(document).ready(function ($) {
   // Preview button in admin bar
-  $("#wp-admin-bar-headless-preview a").on("click", function (e) {
+  $("#wp-admin-bar-vercel-wp a").on("click", function (e) {
     e.preventDefault();
 
     var url = $(this).attr("href");
@@ -94,7 +94,7 @@ jQuery(document).ready(function ($) {
   // Message handling between popup and parent page
   window.addEventListener("message", function (event) {
     if (event.data.type === "headless-preview-ready") {
-      console.log("Preview loaded");
+      return;
     }
   });
 
@@ -195,7 +195,7 @@ jQuery(document).ready(function ($) {
     if (e.ctrlKey && e.key === "p" && !e.target.matches("input, textarea")) {
       e.preventDefault();
 
-      var previewUrl = $("#wp-admin-bar-headless-preview a").attr("href");
+      var previewUrl = $("#wp-admin-bar-vercel-wp a").attr("href");
       if (previewUrl) {
         openPreview(previewUrl);
       }
@@ -208,11 +208,11 @@ jQuery(document).ready(function ($) {
       url: headlessPreview.ajaxUrl,
       type: "POST",
       data: {
-        action: "headless_preview_check_status",
+        action: "vercel_wp_preview_check_status",
         nonce: headlessPreview.nonce,
       },
       success: function (response) {
-        var statusIndicator = $("#wp-admin-bar-headless-preview .ab-icon");
+        var statusIndicator = $("#wp-admin-bar-vercel-wp .ab-icon");
 
         if (response.success && response.data.connected) {
           statusIndicator.css("color", "#46b450");

@@ -18,10 +18,10 @@ delete_option('vercel_site_id');
 
 // from plugin-headless-preview
 // Delete preview options
-delete_option('headless_preview_settings');
+delete_option('vercel_wp_preview_settings');
+delete_option('vercel_wp_custom_page_templates');
 
 // Clear any transients
 global $wpdb;
 $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vercel_wp_%'");
 $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_vercel_wp_%'");
-

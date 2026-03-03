@@ -1501,22 +1501,35 @@
     validateConfiguration: function () {
       // Check if we're on the settings page or main page
       var webhookUrl = "";
+      var hasWebhook = !!(
+        vercelDeployNonces && vercelDeployNonces.has_webhook
+      );
+      var hasMaskedWebhook = false;
 
       // Try to get from current page fields first
       var $webhookField = $('input[name="webhook_address"]');
       if ($webhookField.length > 0) {
         webhookUrl = $webhookField.val();
+        hasMaskedWebhook =
+          typeof webhookUrl === "string" && /^[•]+$/.test(webhookUrl);
       } else {
-        // If not found, get from WordPress options (for admin bar)
-        webhookUrl = vercelDeployNonces.webhook_url || "";
+        // If not on the settings form, rely on server-side config state.
+        if (hasWebhook) {
+          return true;
+        }
       }
 
-      if (!webhookUrl) {
+      if (!webhookUrl && !hasWebhook) {
         this.showNotification(
           "Webhook URL not configured. Please set up your webhook URL in the settings.",
           "error"
         );
         return false;
+      }
+
+      // Masked value in settings means a stored webhook exists.
+      if (hasMaskedWebhook && hasWebhook) {
+        return true;
       }
 
       // Enhanced URL validation

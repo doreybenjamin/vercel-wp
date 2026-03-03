@@ -36,14 +36,11 @@ class VercelWP_Deploy_API {
      * Handle secure Vercel deploy via AJAX
      */
     public function handle_vercel_deploy() {
-        // Verify nonce for security
-        if (!wp_verify_nonce($_POST['nonce'], 'vercel_deploy_nonce')) {
-            wp_die('Security check failed');
-        }
+        check_ajax_referer('vercel_deploy_nonce', 'nonce');
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die('Insufficient permissions');
+            wp_send_json_error(__('Insufficient permissions', 'vercel-wp'));
         }
 
         $webhook_url = VercelWP_Deploy_Admin::get_sensitive_option('webhook_address');
@@ -51,6 +48,10 @@ class VercelWP_Deploy_API {
         // For deployment, only webhook URL is required
         if (empty($webhook_url)) {
             wp_send_json_error(__('Webhook URL not configured. Please set up your webhook URL in the settings.', 'vercel-wp'));
+        }
+
+        if (!self::validate_webhook_url($webhook_url)) {
+            wp_send_json_error(__('Webhook URL is invalid. Please update plugin settings.', 'vercel-wp'));
         }
 
         $response = wp_remote_post($webhook_url, array(
@@ -73,13 +74,12 @@ class VercelWP_Deploy_API {
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
         
         if (defined('WP_DEBUG') && WP_DEBUG) {
             // Debug logs removed
         }
         
-        if ($response_code === 200 || $response_code === 201) {
+        if (in_array($response_code, array(200, 201, 202), true)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 // Debug logs removed
             }
@@ -102,20 +102,14 @@ class VercelWP_Deploy_API {
             // Debug logs removed
         }
         
-        // Verify nonce for security
-        if (!wp_verify_nonce($_POST['nonce'], 'vercel_status_nonce')) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                // Debug logs removed
-            }
-            wp_die('Security check failed');
-        }
+        check_ajax_referer('vercel_status_nonce', 'nonce');
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 // Debug logs removed
             }
-            wp_die('Insufficient permissions');
+            wp_send_json_error(__('Insufficient permissions', 'vercel-wp'));
         }
 
         $api_key = VercelWP_Deploy_Admin::get_sensitive_option('vercel_api_key');
@@ -125,7 +119,7 @@ class VercelWP_Deploy_API {
             wp_send_json_error('API credentials not configured');
         }
 
-        $url = "https://api.vercel.com/v6/deployments?projectId=" . $site_id;
+        $url = "https://api.vercel.com/v6/deployments?projectId=" . rawurlencode($site_id);
         
         $response = wp_remote_get($url, array(
             'timeout' => 30,
@@ -166,14 +160,11 @@ class VercelWP_Deploy_API {
      * Handle secure Vercel deployments list via AJAX
      */
     public function handle_vercel_deployments() {
-        // Verify nonce for security
-        if (!wp_verify_nonce($_POST['nonce'], 'vercel_deployments_nonce')) {
-            wp_die('Security check failed');
-        }
+        check_ajax_referer('vercel_deployments_nonce', 'nonce');
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die('Insufficient permissions');
+            wp_send_json_error(__('Insufficient permissions', 'vercel-wp'));
         }
 
         $api_key = VercelWP_Deploy_Admin::get_sensitive_option('vercel_api_key');
@@ -183,7 +174,7 @@ class VercelWP_Deploy_API {
             wp_send_json_error('API credentials not configured');
         }
 
-        $url = "https://api.vercel.com/v6/deployments?projectId=" . $site_id;
+        $url = "https://api.vercel.com/v6/deployments?projectId=" . rawurlencode($site_id);
         
         $response = wp_remote_get($url, array(
             'timeout' => 30,
@@ -217,20 +208,14 @@ class VercelWP_Deploy_API {
             // Debug logs removed
         }
         
-        // Verify nonce for security
-        if (!wp_verify_nonce($_POST['nonce'], 'vercel_status_nonce')) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                // Debug logs removed
-            }
-            wp_die('Security check failed');
-        }
+        check_ajax_referer('vercel_status_nonce', 'nonce');
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 // Debug logs removed
             }
-            wp_die('Insufficient permissions');
+            wp_send_json_error(__('Insufficient permissions', 'vercel-wp'));
         }
 
         // Default status
@@ -446,4 +431,3 @@ class VercelWP_Deploy_API {
         return true;
     }
 }
-

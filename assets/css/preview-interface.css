@@ -181,6 +181,16 @@
   animation: spin 1s linear infinite !important;
 }
 
+.headless-preview-clear-cache.loading .dashicons {
+  display: inline-block !important;
+  transform-origin: 50% 50% !important;
+  animation: spin 0.9s linear infinite !important;
+}
+
+.headless-preview-clear-cache.loading:hover .dashicons {
+  transform: none !important;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -232,8 +242,10 @@
   border-radius: 6px !important;
   padding: 8px 12px !important;
   margin-right: 12px !important;
-  flex: 1 !important;
-  max-width: 400px !important;
+  min-width: 0 !important;
+  flex: 1 1 400px !important;
+  max-width: min(56vw, 760px) !important;
+  overflow: hidden !important;
   transition: all 0.2s ease !important;
 }
 
@@ -248,28 +260,38 @@
   color: #374151 !important;
   font-size: 13px !important;
   width: 100% !important;
+  min-width: 0 !important;
   outline: none !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
   font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
     "Courier New", monospace !important;
 }
 
 .headless-preview-controls {
   display: flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
   gap: 6px !important;
 }
 
 .headless-preview-controls button {
-  padding: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
   font-size: 14px !important;
   height: 36px !important;
   width: 36px !important;
+  min-height: 36px !important;
+  min-width: 36px !important;
   border-radius: 6px !important;
   border: 1px solid #d1d5db !important;
   background: #fff !important;
   color: #374151 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  display: grid !important;
+  place-items: center !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
   transition: all 0.2s ease !important;
   cursor: pointer !important;
 }
@@ -292,9 +314,81 @@
 }
 
 .headless-preview-controls .dashicons {
+  display: block !important;
+  margin: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
   font-size: 16px !important;
   font-weight: bold !important;
-  line-height: 1 !important;
+  line-height: 16px !important;
+  position: relative !important;
+  top: 1px !important;
+}
+
+.headless-preview-controls .dashicons::before {
+  display: block !important;
+  width: 16px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+.headless-preview-controls .headless-preview-copy-url.is-copied {
+  border-color: #10b981 !important;
+  background: #10b981 !important;
+  color: #fff !important;
+}
+
+.headless-preview-controls button[data-tooltip] {
+  position: relative !important;
+}
+
+.headless-preview-controls button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(2px);
+  background: rgba(17, 24, 39, 0.95);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  padding: 5px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.headless-preview-controls button[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(17, 24, 39, 0.95);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 29;
+  transition: opacity 0.12s ease;
+}
+
+.headless-preview-controls button[data-tooltip]:hover::after,
+.headless-preview-controls button[data-tooltip]:focus::after,
+.headless-preview-controls button[data-tooltip]:hover::before,
+.headless-preview-controls button[data-tooltip]:focus::before {
+  opacity: 1;
+}
+
+.headless-preview-controls button[data-tooltip]:hover::after,
+.headless-preview-controls button[data-tooltip]:focus::after {
+  transform: translateX(-50%) translateY(0);
 }
 
 /* Special style for close button - more specific selector */
@@ -396,6 +490,79 @@
   color: #374151 !important;
   font-weight: 500 !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Modal polish */
+body.headless-preview-open {
+  overflow: hidden;
+}
+
+.headless-preview-container {
+  opacity: 0;
+  transition: opacity 0.18s ease-in-out;
+}
+
+.headless-preview-container.headless-preview-visible {
+  opacity: 1;
+}
+
+.headless-preview-content {
+  margin: 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+}
+
+.headless-preview-deploy-hint {
+  opacity: 0.92;
+}
+
+.headless-preview-status-label {
+  min-width: 150px;
+  font-variant-numeric: tabular-nums;
+}
+
+.headless-preview-controls .headless-preview-copy-url .dashicons {
+  font-size: 14px !important;
+}
+
+.headless-preview-iframe-container {
+  background: linear-gradient(180deg, #fbfbfc 0%, #f3f4f6 100%);
+}
+
+.headless-preview-iframe-container iframe {
+  transition: opacity 0.2s ease;
+}
+
+@media (max-width: 1200px) {
+  .headless-preview-url-bar {
+    max-width: min(52vw, 560px) !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .headless-preview-header {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    align-items: flex-start !important;
+  }
+
+  .headless-preview-title,
+  .headless-preview-header-left,
+  .headless-preview-header-right {
+    width: 100% !important;
+    margin-right: 0 !important;
+  }
+
+  .headless-preview-url-bar {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    margin-right: 0 !important;
+  }
+
+  .headless-preview-controls {
+    margin-left: auto !important;
+  }
 }
 .headless-preview-notification {
   position: fixed;

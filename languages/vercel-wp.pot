@@ -4,7 +4,7 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Vercel WP 2.0.0\n"
+"Project-Id-Version: Vercel WP 1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/doreybenjamin/vercel-wp/issues\n"
 "POT-Creation-Date: 2024-01-01 12:00+0000\n"
 "PO-Revision-Date: 2024-01-01 12:00+0000\n"
@@ -423,4 +423,64 @@ msgid "Connection active"
 msgstr ""
 
 msgid "Connection inactive"
+msgstr ""
+
+msgid "Template créé avec succès."
+msgstr ""
+
+msgid "Template supprimé avec succès."
+msgstr ""
+
+msgid "Le nom du template est requis."
+msgstr ""
+
+msgid "Impossible de générer un identifiant valide pour ce template."
+msgstr ""
+
+msgid "Un template avec cet identifiant existe déjà."
+msgstr ""
+
+msgid "Erreur de sécurité, merci de réessayer."
+msgstr ""
+
+msgid "Créer un template de page"
+msgstr ""
+
+msgid "Ce template apparaîtra ensuite dans \"Attributs de page > Modèle\" lors de l’édition d’une page."
+msgstr ""
+
+msgid "Nom du template"
+msgstr ""
+
+msgid "Créer le template"
+msgstr ""
+
+msgid "Liste des templates disponibles"
+msgstr ""
+
+msgid "Template WordPress par défaut"
+msgstr ""
+
+msgid "Identifiant fichier"
+msgstr ""
+
+msgid "Source"
+msgstr ""
+
+msgid "Action"
+msgstr ""
+
+msgid "Plugin Vercel WP"
+msgstr ""
+
+msgid "Thème actif"
+msgstr ""
+
+msgid "Confirmer la suppression de ce template ?"
+msgstr ""
+
+msgid "Supprimer"
+msgstr ""
+
+msgid "Aucun template personnalisé détecté."
 msgstr ""
