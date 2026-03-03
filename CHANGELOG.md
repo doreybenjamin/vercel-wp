@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-03-03
+
+### Added
+
+- **Native WordPress preview flow support for `Draft + Revalidate` mode**:
+  - reuse of WordPress default preview button behavior for compatible SSR stacks,
+  - dedicated native preview script integration for draft session URLs.
+- **Preview session transport for unsaved editor changes**:
+  - temporary preview session token passed to frontend via URL params,
+  - support for Gutenberg and classic editor snapshots (including ACF/meta payload paths).
+- **Clear-cache button runtime feedback**:
+  - loading state with spinner and label while request is in progress,
+  - success/error notifications after response,
+  - minimum visible loading duration to avoid imperceptible instant states.
+
+### Improved
+
+- **French preview wording harmonized** across editor and modal UI:
+  - `Aperçu` replaced with `Prévisualiser` where relevant,
+  - status labels normalized to `Prévisualisation ...`.
+- **Preview modal UX polish**:
+  - cleaner header content and deploy reminder under post title,
+  - control button tooltips and improved icon vertical alignment,
+  - copy URL interaction with immediate visual confirmation state.
+- **Draft/Revalidate setup clarity** in admin settings:
+  - clearer endpoint expectations and shared-secret guidance for frontend integration.
+
+### Fixed
+
+- **Framework selector dynamic fields** in Preview settings:
+  - mode-specific fields now reliably show/hide when switching framework mode.
+- **Preview button visibility regression in Draft/Revalidate mode** on editor screens.
+- **Admin toggle persistence for "Show Menus"**:
+  - option now applies reliably on first save.
+- **Header warning regression (`Cannot modify header information`)**:
+  - safe redirect fallback applied when output is sent by third-party admin notices.
+- **Preview admin JS syntax issue** that could break script execution on editor pages.
+
 ## [1.1] - 2026-02-27
 
 ### Added

@@ -116,6 +116,20 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
                 $settings['nextjs_revalidate_url'] = '';
             }
         }
+
+        // Auto-fill Draft/Revalidate endpoints from production URL when empty.
+        if ($settings['framework_mode'] === 'draft_revalidate') {
+            $production_base = isset($settings['production_url']) ? rtrim((string) $settings['production_url'], '/') : '';
+            if (!empty($production_base)) {
+                if (empty($settings['nextjs_draft_url'])) {
+                    $settings['nextjs_draft_url'] = $production_base . '/api/draft';
+                }
+                if (empty($settings['nextjs_revalidate_url'])) {
+                    $settings['nextjs_revalidate_url'] = $production_base . '/api/revalidate';
+                }
+            }
+        }
+
         if (isset($_POST['nextjs_draft_param'])) {
             $nextjs_draft_param = sanitize_key(wp_unslash($_POST['nextjs_draft_param']));
             $settings['nextjs_draft_param'] = !empty($nextjs_draft_param) ? $nextjs_draft_param : 'slug';
@@ -249,7 +263,7 @@ if ($is_settings_submit && isset($_POST['vercel_wp_preview_settings_nonce'])) {
                            value="<?php echo esc_attr(isset($settings['nextjs_draft_url']) ? $settings['nextjs_draft_url'] : ''); ?>"
                            class="regular-text" placeholder="https://your-site.com/api/draft?secret=..." />
                     <p class="description">
-                        <?php _e('Point d’entrée qui active le mode draft puis redirige vers l’URL/chemin demandé.', 'vercel-wp'); ?>
+                        <?php _e('Point d’entrée qui active le mode draft puis redirige vers l’URL/chemin demandé. Le plugin ajoute aussi p/preview_id/preview_nonce pour un comportement proche du prévisualiser WordPress.', 'vercel-wp'); ?>
                     </p>
                 </td>
             </tr>
@@ -906,6 +920,44 @@ jQuery(document).ready(function($) {
         return mode === 'nextjs' || mode === 'draft_revalidate';
     }
 
+    function getValidProductionBaseUrl() {
+        var raw = ($('#production_url').val() || '').trim();
+        if (!raw) {
+            return '';
+        }
+
+        try {
+            var parsed = new URL(raw);
+            if (parsed.protocol !== 'https:' || !parsed.hostname) {
+                return '';
+            }
+            return removeTrailingSlash(raw);
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function maybeAutofillDraftEndpoints() {
+        if (!isNextjsMode()) {
+            return;
+        }
+
+        var baseUrl = getValidProductionBaseUrl();
+        if (!baseUrl) {
+            return;
+        }
+
+        var draftField = $('#nextjs_draft_url');
+        var revalidateField = $('#nextjs_revalidate_url');
+
+        if (!draftField.val().trim()) {
+            draftField.val(baseUrl + '/api/draft');
+        }
+        if (!revalidateField.val().trim()) {
+            revalidateField.val(baseUrl + '/api/revalidate');
+        }
+    }
+
     function updateFrameworkVisibility() {
         var showNext = isNextjsMode();
         $('.framework-nextjs-only').toggle(showNext);
@@ -948,12 +1000,14 @@ jQuery(document).ready(function($) {
 
     $('#framework_mode').on('change', function() {
         updateFrameworkVisibility();
+        maybeAutofillDraftEndpoints();
         setTimeout(updateFrameworkVisibility, 0);
     });
 
     updateFrameworkVisibility();
+    maybeAutofillDraftEndpoints();
     
-    $('#production_url').on('input change', function() {
+    $('#production_url').on('input change', function(event) {
         var currentUrl = $(this).val();
         var replacementSection = $('#url-replacement-section');
         
@@ -967,6 +1021,10 @@ jQuery(document).ready(function($) {
         } else {
             replacementSection.hide();
         }
+
+        if (event && event.type === 'change') {
+            maybeAutofillDraftEndpoints();
+        }
     });
     
     // URL Preview
@@ -975,7 +1033,7 @@ jQuery(document).ready(function($) {
         var newUrl = removeTrailingSlash($('#new_url').val());
         
         if (!oldUrl || !newUrl) {
-            $('#url_replacement_result').html('<div class="notice notice-error inline"><p><?php _e('Veuillez saisir les deux URLs', 'vercel-wp'); ?></p></div>');
+            $('#url_replacement_result').html('<div class="notice notice-error inline"><p><?php echo esc_js(__('Veuillez saisir les deux URLs', 'vercel-wp')); ?></p></div>');
             return;
         }
         
@@ -991,12 +1049,12 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 if (response.success) {
                     var preview = response.data.preview;
-                    var html = '<div class="notice notice-success inline"><p><strong><?php _e('Résultats de l\'analyse :', 'vercel-wp'); ?></strong><br>';
-                    html += '<?php _e('Articles :', 'vercel-wp'); ?> ' + preview.posts + '<br>';
-                    html += '<?php _e('Métadonnées :', 'vercel-wp'); ?> ' + preview.postmeta + '<br>';
-                    html += '<?php _e('Commentaires :', 'vercel-wp'); ?> ' + preview.comments + '<br>';
-                    html += '<?php _e('Options :', 'vercel-wp'); ?> ' + preview.options + '<br>';
-                    html += '<strong><?php _e('Total :', 'vercel-wp'); ?> ' + preview.total_count + '</strong></p></div>';
+                    var html = '<div class="notice notice-success inline"><p><strong><?php echo esc_js(__('Résultats de l\'analyse :', 'vercel-wp')); ?></strong><br>';
+                    html += '<?php echo esc_js(__('Articles :', 'vercel-wp')); ?> ' + preview.posts + '<br>';
+                    html += '<?php echo esc_js(__('Métadonnées :', 'vercel-wp')); ?> ' + preview.postmeta + '<br>';
+                    html += '<?php echo esc_js(__('Commentaires :', 'vercel-wp')); ?> ' + preview.comments + '<br>';
+                    html += '<?php echo esc_js(__('Options :', 'vercel-wp')); ?> ' + preview.options + '<br>';
+                    html += '<strong><?php echo esc_js(__('Total :', 'vercel-wp')); ?> ' + preview.total_count + '</strong></p></div>';
                     $('#url_replacement_result').html(html);
                     $('#replace_urls_btn').prop('disabled', false);
                 } else {
@@ -1008,7 +1066,7 @@ jQuery(document).ready(function($) {
     
     // URL Replacement
     $('#replace_urls_btn').on('click', function() {
-        if (!confirm('<?php _e('Confirmez-vous le remplacement de ces URLs ? Cette action est irréversible.', 'vercel-wp'); ?>')) {
+        if (!confirm('<?php echo esc_js(__('Confirmez-vous le remplacement de ces URLs ? Cette action est irréversible.', 'vercel-wp')); ?>')) {
             return;
         }
         
