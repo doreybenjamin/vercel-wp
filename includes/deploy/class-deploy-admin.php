@@ -458,6 +458,13 @@ class VercelWP_Deploy_Admin {
         if (strpos($hook, 'vercel-wp') !== false) {
             return true;
         }
+
+        // Load on admin pages when admin bar is visible
+        if (is_admin() && is_admin_bar_showing()) {
+            $has_webhook = !empty($this->get_encrypted_option('webhook_address'));
+            $has_site_id = !empty($this->get_encrypted_option('vercel_site_id'));
+            return $has_webhook || $has_site_id;
+        }
         
         // Load on frontend if user can see admin bar
         if (!is_admin() && is_admin_bar_showing()) {
@@ -474,10 +481,6 @@ class VercelWP_Deploy_Admin {
      * Add items to admin bar
      */
     public function add_admin_bar_items($admin_bar) {
-        if (is_admin() && (!isset($_GET['page']) || sanitize_key(wp_unslash($_GET['page'])) !== 'vercel-wp')) {
-            return;
-        }
-
         $see_deploy_status = apply_filters('vercel_deploy_capability', 'manage_options');
         $run_deploys = apply_filters('vercel_deploy_capability', 'manage_options');
 

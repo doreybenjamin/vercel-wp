@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-03-06
+
+### Fixed
+
+- **Deploy button visibility in WordPress admin bar**:
+  - removed the admin-page restriction that only showed the deploy button on the Deploy screen,
+  - button and deploy status are now available across the whole WordPress backoffice.
+- **Deploy admin bar behavior on non-Deploy admin screens**:
+  - deploy assets are now loaded on admin pages when the admin bar is visible,
+  - ensures the admin bar deploy action works from any backoffice page.
+
 ## [1.1.1] - 2026-03-03
 
 ### Added
