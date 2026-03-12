@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-03-12
+
+### Added
+
+- **Optional removal of the deployment button from the admin bar**:
+  - new option in `Options` to hide the deploy action while keeping deployment status available when relevant.
+
+### Improved
+
+- **Preview modal responsiveness and cache behavior**:
+  - delayed loading indicators to avoid flicker on fast responses,
+  - prepared preview URLs are reused when editor content has not changed,
+  - repeated opens of the same preview no longer force a redundant loading state.
+- **Deployment UI copy and localization coverage**:
+  - clearer deployment state messages for queued, building, checking, canceled, and completed states,
+  - sensitive field helper messages are now localized consistently.
+
+### Fixed
+
+- **Preview interface asset cache busting**:
+  - preview interface CSS/JS now use `filemtime`-based versions to avoid stale browser assets after updates.
+- **Duplicate preview interface enqueue path** removed to prevent inconsistent asset loading.
+- **Deploy button visibility control** now applies consistently in both admin and frontend admin bar contexts.
+
 ## [1.1.2] - 2026-03-06
 
 ### Fixed

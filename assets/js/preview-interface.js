@@ -23,10 +23,18 @@ jQuery(function ($) {
   var latestBasePreviewUrl = "";
   var blockedTimeout = null;
   var blockedRetryTimeout = null;
+  var loadingIndicatorTimeout = null;
+  var buttonLoadingTimeout = null;
   var blockedRetryCount = 0;
   var blockedDetectionTimeoutMs = 9000;
   var blockedAutoRetriesMax = 1;
+  var loadingIndicatorDelayMs = 250;
+  var buttonLoadingDelayMs = 180;
   var isOpeningPreview = false;
+  var isPreviewNavigating = false;
+  var hasLoadedPreviewOnce = false;
+  var lastPreparedPreviewUrl = "";
+  var lastPreparedPreviewBaseUrl = "";
   var classicBaseline = captureClassicSnapshot();
 
   if (typeof headlessPreview !== "undefined") {
@@ -102,6 +110,60 @@ jQuery(function ($) {
 
   function appendTimestamp(url) {
     return url + (url.indexOf("?") === -1 ? "?" : "&") + "t=" + Date.now();
+  }
+
+  function stripEphemeralPreviewParams(url) {
+    if (!url) {
+      return "";
+    }
+
+    try {
+      var parsed = new URL(url, window.location.origin);
+      parsed.searchParams.delete("t");
+      return parsed.toString();
+    } catch (e) {
+      return String(url)
+        .replace(/([?&])t=\d+(&)?/, function (match, prefix, suffix) {
+          if (prefix === "?" && suffix) {
+            return "?";
+          }
+          if (prefix === "&" && suffix) {
+            return "&";
+          }
+          return "";
+        })
+        .replace(/[?&]$/, "");
+    }
+  }
+
+  function clearCachedPreparedPreview() {
+    lastPreparedPreviewUrl = "";
+    lastPreparedPreviewBaseUrl = "";
+  }
+
+  function showLoadingIndicatorWithDelay(forceDisplay) {
+    if (loadingIndicatorTimeout) {
+      clearTimeout(loadingIndicatorTimeout);
+    }
+
+    if (hasLoadedPreviewOnce && !forceDisplay) {
+      return;
+    }
+
+    loadingIndicatorTimeout = setTimeout(function () {
+      if ($container.is(":visible") && !$fallback.is(":visible")) {
+        $loading.show();
+      }
+    }, loadingIndicatorDelayMs);
+  }
+
+  function hideLoadingIndicator() {
+    if (loadingIndicatorTimeout) {
+      clearTimeout(loadingIndicatorTimeout);
+      loadingIndicatorTimeout = null;
+    }
+
+    $loading.hide();
   }
 
   function isDraftRevalidateMode() {
@@ -355,6 +417,7 @@ jQuery(function ($) {
     if (snapshot) {
       classicBaseline = snapshot;
     }
+    clearCachedPreparedPreview();
   }
 
   function ensureCopyButton() {
@@ -424,18 +487,31 @@ jQuery(function ($) {
 
     ensureCopyButton();
     hydrateControlTooltips();
+    var stableTargetUrl = stripEphemeralPreviewParams(url);
+    var currentStableUrl = stripEphemeralPreviewParams($iframe.attr("src") || currentUrl);
     currentUrl = appendTimestamp(url);
     $container.show().addClass("headless-preview-visible");
     $("body").addClass("headless-preview-open");
-    $loading.show();
     $fallback.hide();
+
+    if (hasLoadedPreviewOnce && currentStableUrl && currentStableUrl === stableTargetUrl) {
+      isPreviewNavigating = false;
+      hideLoadingIndicator();
+      setStatus("ready", t("previewUpdatedAt", "Prévisualisation mise à jour à") + " " + nowLabel());
+      return;
+    }
+
+    isPreviewNavigating = true;
     setStatus("loading", t("loadingPreview", "Chargement de la prévisualisation…"));
+    showLoadingIndicatorWithDelay(!hasLoadedPreviewOnce);
     $iframe.attr("src", currentUrl);
     startBlockedDetection();
   }
 
   function closePreview() {
     clearBlockedDetection();
+    isPreviewNavigating = false;
+    hideLoadingIndicator();
     $container.removeClass("headless-preview-visible").hide();
     $("body").removeClass("headless-preview-open");
     $fallback.hide();
@@ -447,9 +523,10 @@ jQuery(function ($) {
       latestBasePreviewUrl || $(".headless-preview-toggle").first().data("url") || currentUrl;
     if (!baseUrl) return;
 
-    $loading.show();
+    isPreviewNavigating = true;
     $fallback.hide();
     setStatus("loading", t("loadingPreview", "Chargement de la prévisualisation…"));
+    showLoadingIndicatorWithDelay(false);
     syncAndBuildPreviewUrl(baseUrl).then(function (preparedUrl) {
       currentUrl = appendTimestamp(preparedUrl || baseUrl);
       $iframe.attr("src", currentUrl);
@@ -467,7 +544,9 @@ jQuery(function ($) {
       "loading",
       t("retryingPreview", "Chargement plus long que prévu, nouvelle tentative…")
     );
-    $loading.show();
+    if (!hasLoadedPreviewOnce) {
+      $loading.show();
+    }
     $fallback.hide();
 
     blockedRetryTimeout = setTimeout(function () {
@@ -490,7 +569,7 @@ jQuery(function ($) {
 
   function scheduleBlockedDetection() {
     blockedTimeout = setTimeout(function () {
-      if (!$container.is(":visible") || !$loading.is(":visible")) {
+      if (!$container.is(":visible") || !isPreviewNavigating) {
         return;
       }
 
@@ -498,7 +577,7 @@ jQuery(function ($) {
         return;
       }
 
-      $loading.hide();
+      hideLoadingIndicator();
       $fallback.show();
       setStatus("error", t("previewError", "Prévisualisation indisponible"));
     }, blockedDetectionTimeoutMs);
@@ -723,6 +802,14 @@ jQuery(function ($) {
       return Promise.resolve("");
     }
 
+    if (
+      !isEditorDirty() &&
+      lastPreparedPreviewUrl &&
+      lastPreparedPreviewBaseUrl === targetUrl
+    ) {
+      return Promise.resolve(lastPreparedPreviewUrl);
+    }
+
     return syncUnsavedChanges()
       .catch(function () {
         return null;
@@ -731,7 +818,10 @@ jQuery(function ($) {
         return preparePreviewSession(targetUrl);
       })
       .then(function (preparedUrl) {
-        return preparedUrl || targetUrl;
+        var resolvedUrl = preparedUrl || targetUrl;
+        lastPreparedPreviewBaseUrl = targetUrl;
+        lastPreparedPreviewUrl = resolvedUrl;
+        return resolvedUrl;
       });
   }
 
@@ -753,16 +843,22 @@ jQuery(function ($) {
 
     var originalHtml = $button.html();
     isOpeningPreview = true;
-    $button
-      .prop("disabled", true)
-      .addClass("loading")
-      .html('<span class="dashicons dashicons-update"></span>' + t("syncing", "Synchronisation…"));
+    $button.prop("disabled", true);
+    buttonLoadingTimeout = setTimeout(function () {
+      $button
+        .addClass("loading")
+        .html('<span class="dashicons dashicons-update"></span>' + t("syncing", "Synchronisation…"));
+    }, buttonLoadingDelayMs);
 
     syncAndBuildPreviewUrl(baseUrl)
       .then(function (preparedUrl) {
         openPreview(preparedUrl || baseUrl);
       })
       .finally(function () {
+        if (buttonLoadingTimeout) {
+          clearTimeout(buttonLoadingTimeout);
+          buttonLoadingTimeout = null;
+        }
         $button.prop("disabled", false).removeClass("loading").html(originalHtml);
         isOpeningPreview = false;
       });
@@ -855,7 +951,9 @@ jQuery(function ($) {
   $iframe.on("load", function () {
     clearBlockedDetection();
     blockedRetryCount = 0;
-    $loading.hide();
+    isPreviewNavigating = false;
+    hasLoadedPreviewOnce = true;
+    hideLoadingIndicator();
     $fallback.hide();
     var updatedAtText = t("previewUpdatedAt", "Prévisualisation mise à jour à");
     setStatus("ready", updatedAtText + " " + nowLabel());
@@ -868,9 +966,14 @@ jQuery(function ($) {
       return;
     }
 
-    $loading.hide();
+    isPreviewNavigating = false;
+    hideLoadingIndicator();
     $fallback.show();
     setStatus("error", t("previewError", "Prévisualisation indisponible"));
+  });
+
+  $(document).on("input change", "#post :input, #title, #content, #excerpt", function () {
+    clearCachedPreparedPreview();
   });
 
   var autoRefreshEnabled =

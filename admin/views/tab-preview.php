@@ -24,6 +24,7 @@ $settings = get_option('vercel_wp_preview_settings', array(
     'cache_duration' => 300,
     'auto_refresh' => true,
     'show_button_admin_bar' => true,
+    'show_deploy_button_admin_bar' => true,
     'show_button_editor' => true,
     'disable_theme_page' => true,
     'headless_show_menus_menu' => true

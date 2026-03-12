@@ -381,7 +381,10 @@
       this.setButtonLoadingState($button, true);
       $("#build_status")
         .html(
-          '<span style="color: #0073aa;">Déploiement déclenché... Attente de confirmation...</span>'
+          '<span style="color: #0073aa;">' +
+            (vercelDeployNonces.deploy_triggered_waiting_text ||
+              "Deployment triggered... Waiting for confirmation...") +
+            "</span>"
         )
         .css("margin-top", "10px");
 
@@ -532,7 +535,10 @@
           if (response.success) {
             // Show starting message instead of success
             $("#build_status").html(
-              '<span style="color: #0073aa;">Déploiement déclenché... Vérification de l\'état en cours...</span>'
+              '<span style="color: #0073aa;">' +
+                (vercelDeployNonces.deploy_triggered_checking_text ||
+                  "Deployment triggered... Checking status...") +
+                "</span>"
             );
             // Don't show success notification - polling will handle status updates
           } else {
@@ -912,7 +918,7 @@
           .html(
             '<span class="vercel-success">' +
               (vercelDeployNonces.deployment_completed_text ||
-                "Déploiement terminé avec succès !") +
+                "Deployment completed successfully!") +
               "</span>"
           )
           .css("margin-top", "10px");
@@ -930,7 +936,7 @@
           .html(
             '<span class="vercel-error">' +
               (vercelDeployNonces.deployment_failed_text ||
-                "Déploiement échoué") +
+                "Deployment failed") +
               "</span>"
           )
           .css("margin-top", "10px");
@@ -942,7 +948,10 @@
       } else if (state === "BUILDING") {
         $("#build_status")
           .html(
-            '<span style="color: #0073aa;">Build en cours sur Vercel...</span>'
+            '<span style="color: #0073aa;">' +
+              (vercelDeployNonces.build_running_text ||
+                "Build in progress on Vercel...") +
+              "</span>"
           )
           .css("margin-top", "10px");
       } else if (state === "CANCELED") {
@@ -950,7 +959,7 @@
           .html(
             '<span class="vercel-error">' +
               (vercelDeployNonces.deployment_canceled_text ||
-                "Déploiement annulé") +
+                "Deployment canceled") +
               "</span>"
           )
           .css("margin-top", "10px");
@@ -962,7 +971,10 @@
       } else if (state === "QUEUED" || state === "INITIALIZING") {
         $("#build_status")
           .html(
-            '<span style="color: #0073aa;">Déploiement en file d\'attente...</span>'
+            '<span style="color: #0073aa;">' +
+              (vercelDeployNonces.deployment_queue_text ||
+                "Deployment queued...") +
+              "</span>"
           )
           .css("margin-top", "10px");
       }
@@ -999,7 +1011,12 @@
         // Keep deploying state - don't reset
         $buttonContent.addClass("running").css("opacity", "0.5");
         $buttonContent.addClass("deploying");
-        $buttonContent.find(".ab-label").text("Déploiement en cours...");
+        $buttonContent
+          .find(".ab-label")
+          .text(
+            vercelDeployNonces.deploy_building_text ||
+              "Deployment in progress..."
+          );
       } else if (state === "ERROR") {
         this.debug("State is ERROR - updating button text only");
         // Don't reset here - updateStatusDisplay handles it
@@ -1260,7 +1277,12 @@
           "pointer-events": "none",
           cursor: "not-allowed",
         });
-        $adminButtonContent.find(".ab-label").text("Déploiement en cours...");
+        $adminButtonContent
+          .find(".ab-label")
+          .text(
+            vercelDeployNonces.deploy_building_text ||
+              "Deployment in progress..."
+          );
 
         this.debug("Admin bar button disabled", {
           classes: $adminButton.attr("class"),
@@ -2265,7 +2287,10 @@
           opacity: "0.6",
         });
         $button.data("original-text", $button.text());
-        $button.text("Déploiement en cours...");
+        $button.text(
+          vercelDeployNonces.deploy_building_text ||
+            "Deployment in progress..."
+        );
         this.debug("Button set to loading state", {
           text: $button.text(),
           disabled: $button.prop("disabled"),
@@ -2405,7 +2430,10 @@
           if ($button.length > 0) {
             this.setButtonLoadingState($button, true);
             $("#build_status")
-              .html("Checking deployment status...")
+              .html(
+                vercelDeployNonces.checking_deployment_status_text ||
+                  "Checking deployment status..."
+              )
               .css("margin-top", "10px");
 
             // Start polling to check current status
@@ -2449,11 +2477,14 @@
           
           // Restore description
           if ($description.length) {
-            $description.text("Valeur masquée pour sécurité. Cliquez sur \"Éditer\" pour la remplacer.");
+            $description.text(
+              vercelDeployNonces.sensitive_masked_text ||
+                'Value hidden for security. Click "Edit" to replace it.'
+            );
           }
           
           // Change button text back to edit
-          var editText = $button.data("text-replace") || "Éditer";
+          var editText = $button.data("text-replace") || "Edit";
           $button.text(editText);
           return;
         }
@@ -2476,11 +2507,14 @@
         
         // Update description
         if ($description.length) {
-          $description.text("Saisissez la nouvelle valeur, puis sauvegardez le formulaire.");
+          $description.text(
+            vercelDeployNonces.sensitive_editing_text ||
+              "Enter the new value, then save the form."
+          );
         }
         
         // Change button text to cancel
-        var cancelText = $button.data("text-cancel") || "Annuler";
+        var cancelText = $button.data("text-cancel") || "Cancel";
         $button.text(cancelText);
       });
 
@@ -2538,10 +2572,13 @@
               $wrapper.removeClass("editing-mode");
               
               if ($description.length) {
-                $description.text("Valeur masquée pour sécurité. Cliquez sur \"Éditer\" pour la remplacer.");
+                $description.text(
+                  vercelDeployNonces.sensitive_masked_text ||
+                    'Value hidden for security. Click "Edit" to replace it.'
+                );
               }
               
-              var editText = $button.data("text-replace") || "Éditer";
+              var editText = $button.data("text-replace") || "Edit";
               $button.text(editText);
             }
           });

@@ -470,7 +470,7 @@ msgstr "Vercel"
 msgid "Deploying…"
 msgstr "Déploiement en cours…"
 
-msgid "Deploy building..."
+msgid "Deployment in progress..."
 msgstr "Déploiement en cours..."
 
 msgid "Deployment completed successfully!"
@@ -478,6 +478,30 @@ msgstr "Déploiement terminé avec succès !"
 
 msgid "Deployment failed"
 msgstr "Déploiement échoué"
+
+msgid "Deployment canceled"
+msgstr "Déploiement annulé"
+
+msgid "Deployment triggered... Waiting for confirmation..."
+msgstr "Déploiement déclenché... Attente de confirmation..."
+
+msgid "Deployment triggered... Checking status..."
+msgstr "Déploiement déclenché... Vérification de l'état en cours..."
+
+msgid "Deployment queued..."
+msgstr "Déploiement en file d'attente..."
+
+msgid "Build in progress on Vercel..."
+msgstr "Build en cours sur Vercel..."
+
+msgid "Checking deployment status..."
+msgstr "Vérification de l'état du déploiement..."
+
+msgid "Value hidden for security. Click \"Edit\" to replace it."
+msgstr "Valeur masquée pour sécurité. Cliquez sur \"Éditer\" pour la remplacer."
+
+msgid "Enter the new value, then save the form."
+msgstr "Saisissez la nouvelle valeur, puis sauvegardez le formulaire."
 
 msgid "Load Last 3 Deployments"
 msgstr "Charger les 3 derniers déploiements"
@@ -912,3 +936,9 @@ msgstr "Supprimer"
 
 msgid "Aucun template personnalisé détecté."
 msgstr "Aucun template personnalisé détecté."
+
+msgid "Enlever le bouton de déploiement dans la barre d’administration"
+msgstr "Enlever le bouton de déploiement dans la barre d’administration"
+
+msgid "Remove the deployment button from the admin bar"
+msgstr "Enlever le bouton de déploiement dans la barre d’administration"

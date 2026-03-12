@@ -11,6 +11,7 @@ defined('ABSPATH') or die('Access denied');
 $settings = get_option('vercel_wp_preview_settings', array(
     'auto_refresh' => true,
     'show_button_admin_bar' => true,
+    'show_deploy_button_admin_bar' => true,
     'show_button_editor' => true,
     'disable_theme_page' => true,
     'headless_show_menus_menu' => true,
@@ -74,6 +75,7 @@ if (isset($_POST['submit_options']) && isset($_POST['vercel_wp_options_nonce']))
     if (wp_verify_nonce($_POST['vercel_wp_options_nonce'], 'vercel_wp_options')) {
         $settings['auto_refresh'] = isset($_POST['auto_refresh']);
         $settings['show_button_admin_bar'] = isset($_POST['show_button_admin_bar']);
+        $settings['show_deploy_button_admin_bar'] = !isset($_POST['show_deploy_button_admin_bar']);
         $settings['show_button_editor'] = isset($_POST['show_button_editor']);
         $settings['disable_theme_page'] = isset($_POST['disable_theme_page']);
         $settings['headless_show_menus_menu'] = isset($_POST['headless_show_menus_menu']);
@@ -301,6 +303,10 @@ if ($notice_key === 'settings_saved') {
                     <label>
                         <input type="checkbox" name="show_button_admin_bar" value="1" <?php checked(!empty($settings['show_button_admin_bar']), true); ?> />
                         <?php _e('Afficher le bouton de preview dans la barre d’administration', 'vercel-wp'); ?>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="show_deploy_button_admin_bar" value="1" <?php checked(empty($settings['show_deploy_button_admin_bar']), true); ?> />
+                        <?php _e('Remove the deployment button from the admin bar', 'vercel-wp'); ?>
                     </label>
                     <label>
                         <input type="checkbox" name="show_button_editor" value="1" <?php checked(!empty($settings['show_button_editor']), true); ?> />

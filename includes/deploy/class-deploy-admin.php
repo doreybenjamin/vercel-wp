@@ -434,10 +434,17 @@ class VercelWP_Deploy_Admin {
             // Security: API keys removed from client-side exposure
             'deploying_text' => __('Deploying…', 'vercel-wp'),
             'deploy_site_text' => __('Deploy Site', 'vercel-wp'),
-            'deploy_building_text' => __('Deploy building...', 'vercel-wp'),
+            'deploy_building_text' => __('Deployment in progress...', 'vercel-wp'),
+            'deploy_triggered_waiting_text' => __('Deployment triggered... Waiting for confirmation...', 'vercel-wp'),
+            'deploy_triggered_checking_text' => __('Deployment triggered... Checking status...', 'vercel-wp'),
             'deployment_completed_text' => __('Deployment completed successfully!', 'vercel-wp'),
             'deployment_failed_text' => __('Deployment failed', 'vercel-wp'),
             'deployment_canceled_text' => __('Deployment canceled', 'vercel-wp'),
+            'deployment_queue_text' => __('Deployment queued...', 'vercel-wp'),
+            'build_running_text' => __('Build in progress on Vercel...', 'vercel-wp'),
+            'checking_deployment_status_text' => __('Checking deployment status...', 'vercel-wp'),
+            'sensitive_masked_text' => __('Value hidden for security. Click "Edit" to replace it.', 'vercel-wp'),
+            'sensitive_editing_text' => __('Enter the new value, then save the form.', 'vercel-wp'),
             'created_text' => __('Created:', 'vercel-wp'),
             'duration_text' => __('Duration:', 'vercel-wp'),
             'branch_text' => __('Branch:', 'vercel-wp'),
@@ -454,6 +461,9 @@ class VercelWP_Deploy_Admin {
             return false;
         }
 
+        $settings = get_option('vercel_wp_preview_settings', array());
+        $show_deploy_button_admin_bar = !array_key_exists('show_deploy_button_admin_bar', $settings) || !empty($settings['show_deploy_button_admin_bar']);
+
         // Always load on plugin pages
         if (strpos($hook, 'vercel-wp') !== false) {
             return true;
@@ -461,14 +471,14 @@ class VercelWP_Deploy_Admin {
 
         // Load on admin pages when admin bar is visible
         if (is_admin() && is_admin_bar_showing()) {
-            $has_webhook = !empty($this->get_encrypted_option('webhook_address'));
+            $has_webhook = $show_deploy_button_admin_bar && !empty($this->get_encrypted_option('webhook_address'));
             $has_site_id = !empty($this->get_encrypted_option('vercel_site_id'));
             return $has_webhook || $has_site_id;
         }
         
         // Load on frontend if user can see admin bar
         if (!is_admin() && is_admin_bar_showing()) {
-            $has_webhook = !empty($this->get_encrypted_option('webhook_address'));
+            $has_webhook = $show_deploy_button_admin_bar && !empty($this->get_encrypted_option('webhook_address'));
             $has_site_id = !empty($this->get_encrypted_option('vercel_site_id'));
             return $has_webhook || $has_site_id;
         }
@@ -483,8 +493,10 @@ class VercelWP_Deploy_Admin {
     public function add_admin_bar_items($admin_bar) {
         $see_deploy_status = apply_filters('vercel_deploy_capability', 'manage_options');
         $run_deploys = apply_filters('vercel_deploy_capability', 'manage_options');
+        $settings = get_option('vercel_wp_preview_settings', array());
+        $show_deploy_button_admin_bar = !array_key_exists('show_deploy_button_admin_bar', $settings) || !empty($settings['show_deploy_button_admin_bar']);
 
-        if (current_user_can($run_deploys)) {
+        if ($show_deploy_button_admin_bar && current_user_can($run_deploys)) {
             $webhook_address = $this->get_encrypted_option('webhook_address');
 
             if ($webhook_address) {

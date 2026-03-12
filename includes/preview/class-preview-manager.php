@@ -386,6 +386,7 @@ class VercelWP_Preview_Manager {
             'cache_duration' => 300, // 5 minutes
             'auto_refresh' => true,
             'show_button_admin_bar' => true,
+            'show_deploy_button_admin_bar' => true,
             'show_button_editor' => true,
             'disable_theme_page' => true,
             'headless_show_menus_menu' => true
@@ -413,8 +414,13 @@ class VercelWP_Preview_Manager {
         }
 
         if ($is_editor_page && !empty($settings['show_button_editor']) && !$use_native_preview_button) {
-            wp_enqueue_style('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), VERCEL_WP_VERSION);
-            wp_enqueue_script('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), VERCEL_WP_VERSION, true);
+            $preview_interface_css = VERCEL_WP_PLUGIN_DIR . 'assets/css/preview-interface.css';
+            $preview_interface_js = VERCEL_WP_PLUGIN_DIR . 'assets/js/preview-interface.js';
+            $preview_interface_css_ver = file_exists($preview_interface_css) ? filemtime($preview_interface_css) : VERCEL_WP_VERSION;
+            $preview_interface_js_ver = file_exists($preview_interface_js) ? filemtime($preview_interface_js) : VERCEL_WP_VERSION;
+
+            wp_enqueue_style('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), $preview_interface_css_ver);
+            wp_enqueue_script('vercel-wp-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), $preview_interface_js_ver, true);
 
             wp_localize_script('vercel-wp-preview-interface', 'headlessPreview', array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -670,15 +676,6 @@ class VercelWP_Preview_Manager {
         echo '</div>';
         echo '</div>';
         
-        // Load external CSS and JS files (filemtime-based version to avoid stale browser cache).
-        $interface_css_path = VERCEL_WP_PLUGIN_DIR . 'assets/css/preview-interface.css';
-        $interface_js_path = VERCEL_WP_PLUGIN_DIR . 'assets/js/preview-interface.js';
-        $interface_css_ver = file_exists($interface_css_path) ? filemtime($interface_css_path) : VERCEL_WP_VERSION;
-        $interface_js_ver = file_exists($interface_js_path) ? filemtime($interface_js_path) : VERCEL_WP_VERSION;
-
-        wp_enqueue_style('headless-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/css/preview-interface.css', array(), $interface_css_ver);
-        wp_enqueue_script('headless-preview-interface', VERCEL_WP_PLUGIN_URL . 'assets/js/preview-interface.js', array('jquery'), $interface_js_ver, true);
-        
         echo '</div>';
     }
 
@@ -907,6 +904,7 @@ class VercelWP_Preview_Manager {
         // Checkboxes
         $settings['auto_refresh'] = isset($_POST['auto_refresh']);
         $settings['show_button_admin_bar'] = isset($_POST['show_button_admin_bar']);
+        $settings['show_deploy_button_admin_bar'] = !isset($_POST['show_deploy_button_admin_bar']);
         $settings['show_button_editor'] = isset($_POST['show_button_editor']);
         $settings['disable_theme_page'] = isset($_POST['disable_theme_page']);
         $settings['headless_show_menus_menu'] = isset($_POST['headless_show_menus_menu']);
@@ -2183,6 +2181,7 @@ class VercelWP_Preview_Manager {
             'cache_duration' => 300,
             'auto_refresh' => true,
             'show_button_admin_bar' => true,
+            'show_deploy_button_admin_bar' => true,
             'show_button_editor' => true,
             'disable_theme_page' => true,
             'headless_show_menus_menu' => true

@@ -73,6 +73,12 @@ msgstr ""
 msgid "Deploy Site"
 msgstr ""
 
+msgid "Enlever le bouton de déploiement dans la barre d’administration"
+msgstr ""
+
+msgid "Remove the deployment button from the admin bar"
+msgstr ""
+
 msgid "Vercel deploy status"
 msgstr ""
 
@@ -280,13 +286,37 @@ msgstr ""
 msgid "Deploying…"
 msgstr ""
 
-msgid "Deploy building..."
+msgid "Deployment in progress..."
 msgstr ""
 
 msgid "Deployment completed successfully!"
 msgstr ""
 
 msgid "Deployment failed"
+msgstr ""
+
+msgid "Deployment canceled"
+msgstr ""
+
+msgid "Deployment triggered... Waiting for confirmation..."
+msgstr ""
+
+msgid "Deployment triggered... Checking status..."
+msgstr ""
+
+msgid "Deployment queued..."
+msgstr ""
+
+msgid "Build in progress on Vercel..."
+msgstr ""
+
+msgid "Checking deployment status..."
+msgstr ""
+
+msgid "Value hidden for security. Click \"Edit\" to replace it."
+msgstr ""
+
+msgid "Enter the new value, then save the form."
 msgstr ""
 
 msgid "Load Last 3 Deployments"
